@@ -39,4 +39,10 @@ class Console:
             self.dock.append_output("No code to run.")
             return
 
-        self.dock.append_output("\n".join(f"> {line}" for line in code.splitlines()))
+        self.dock.executionStateChanged.emit(True)
+        try:
+            for line in code.splitlines():
+                self.dock.append_command(line)
+        finally:
+            self.dock.executionStateChanged.emit(False)
+
