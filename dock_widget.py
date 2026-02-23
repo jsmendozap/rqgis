@@ -404,8 +404,8 @@ class RConsoleDockWidget(QDockWidget):
         code = self.repl.text().strip()
         if not code:
             return
-        self._repl_history.append(code)
-        self._repl_history_index = len(self._repl_history)
+        
+        self._add_to_repl_history(code)
         self.runRequested.emit(code)
         self.repl.clear()
 
@@ -419,6 +419,10 @@ class RConsoleDockWidget(QDockWidget):
                 return True
         return super().eventFilter(obj, event)
     
+    def _add_to_repl_history(self, command):
+        self._repl_history.append(command)
+        self._repl_history_index = len(self._repl_history)
+
     def _show_previous_repl_history(self):
         if not self._repl_history:
             return
@@ -498,14 +502,33 @@ class RConsoleDockWidget(QDockWidget):
         else:
             tab_bar.setTabTextColor(index, QColor("black"))
 
-    def append_output(self, text):
-        self.history.append(text)
+    def _append_output(self, text):
+        lines = text.splitlines()
+        command = lines[0] if lines else ""
+        output = "\n".join(lines[1:]) if len(lines) > 1 else ""
 
-    def append_command(self, text):
-        self.history.append(self._render_repl_command_html(text))
+        self.history.append(self._render_repl_command_html(command))
+        
+        if output:
+            rendered_output = (
+                "<pre style='line-height:1.5;'>"
+                f"{html.escape(output)}"
+                "</pre>"
+            )
+            self.history.append(rendered_output)
+            
+        self._add_to_repl_history(command)
 
-    def append_error(self, text):
+    def _append_error(self, text):
         self.history.append(f"<span style='color: red;'>{text}</span>")
+
+    def print_to_console(self, line, result):
+        if result["error"] is not None:
+            self._append_output(f"{line}\n")
+            self._append_error(f"{result['error']}")
+        
+        if result["stdout"]:
+            self._append_output(f"{line}\n{result['stdout']}")
 
     def _render_repl_command_html(self, text):
         BLUE_PROMPT = "#0E0ED0"   # > azul oscuro
