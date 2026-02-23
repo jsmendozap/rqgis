@@ -1,5 +1,5 @@
-from qgis.PyQt.QtCore import Qt, pyqtSignal, QEvent, QSize
-from qgis.PyQt.QtGui import QIcon, QFont, QKeySequence, QColor
+from qgis.PyQt.QtCore import Qt, pyqtSignal, QSize, QRegularExpression
+from qgis.PyQt.QtGui import QIcon, QFont, QKeySequence, QColor, QTextCursor, QSyntaxHighlighter, QTextCharFormat
 from qgis.PyQt.Qsci import QsciScintilla, QsciLexerPython
 import html
 
@@ -72,16 +72,138 @@ class EditorTab(QsciScintilla):
         base = self.file_path.split("/")[-1] if self.file_path else "Untitled.R"
         return f"*{base}" if self._is_dirty else base
 
+class RHighlighter(QSyntaxHighlighter):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.highlightingRules = []
+        self._error_blocks = set()
 
-class RConsoleDockWidget(QDockWidget):
+        promptFormat = QTextCharFormat()
+        promptFormat.setForeground(QColor("#0E0ED0"))
+        promptFormat.setFontWeight(QFont.Bold)
+        
+        stringFormat = QTextCharFormat()
+        stringFormat.setForeground(QColor("#2e7d32"))
+        
+        funcFormat = QTextCharFormat()
+        funcFormat.setForeground(QColor("#0E0ED0"))
+        
+        self.errorFormat = QTextCharFormat()
+        self.errorFormat.setForeground(QColor("red"))
+
+        self.highlightingRules.append((QRegularExpression(r"^> "), promptFormat))
+        self.highlightingRules.append((QRegularExpression(r"\".*\""), stringFormat))
+        self.highlightingRules.append((QRegularExpression(r"'.*'"), stringFormat))
+        self.highlightingRules.append((QRegularExpression(r"\b[A-Za-z0-9_.]+(?=\()"), funcFormat))
+
+    def highlightBlock(self, text):
+        if self.currentBlock().blockNumber() in self._error_blocks:
+            self.setFormat(0, len(text), self.errorFormat)
+            return
+        for pattern, fmt in self.highlightingRules:
+            match = pattern.match(text)
+            while match.hasMatch():
+                self.setFormat(match.capturedStart(), match.capturedLength(), fmt)
+                match = pattern.match(text, match.capturedStart() + match.capturedLength())
+
+    def mark_error_block(self, block):
+        self._error_blocks.add(block.blockNumber())
+        self.rehighlightBlock(block)
+
+class RConsole(QTextEdit):
+    runRequested = pyqtSignal(str)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.prompt = "> "
+        self.history_list = []
+        self.history_index = 0
+        self.setAcceptRichText(False)
+        self.setReadOnly(False)
+        
+        font = QFont("Monospace")
+        font.setStyleHint(QFont.TypeWriter)
+        self.setFont(font)
+        
+        self.insertPlainText(self.prompt)
+        self._highlighter = RHighlighter(self.document())
+
+    def keyPressEvent(self, event):
+        cursor = self.textCursor()
+        
+        if cursor.blockNumber() < self.document().blockCount() - 1:
+            if not cursor.hasSelection():
+                self.moveCursor(QTextCursor.End)
+
+        if event.key() in (Qt.Key_Return, Qt.Key_Enter):
+            if event.modifiers() == Qt.NoModifier:
+                self._handle_enter()
+                return
+        
+        if event.key() == Qt.Key_Backspace:
+            line_text = self.document().lastBlock().text()
+            if len(line_text) <= len(self.prompt):
+                return
+
+        if event.key() == Qt.Key_Up:
+            if self.history_index > 0:
+                self.history_index -= 1
+                self._replace_current_input(self.history_list[self.history_index])
+            return
+
+        if event.key() == Qt.Key_Down:
+            if self.history_index < len(self.history_list):
+                self.history_index += 1
+                text = self.history_list[self.history_index] if self.history_index < len(self.history_list) else ""
+                self._replace_current_input(text)
+            return
+
+        super().keyPressEvent(event)
+
+    def mousePressEvent(self, event):
+        super().mousePressEvent(event)
+        if self.textCursor().blockNumber() < self.document().blockCount() - 1:
+            self.moveCursor(QTextCursor.End)
+
+    def mouseReleaseEvent(self, event):
+        super().mouseReleaseEvent(event)
+        if self.textCursor().blockNumber() < self.document().blockCount() - 1:
+            self.moveCursor(QTextCursor.End)
+
+    def _handle_enter(self):
+        self.moveCursor(QTextCursor.End)
+        self.moveCursor(QTextCursor.StartOfBlock, QTextCursor.KeepAnchor)
+        line = self.textCursor().selectedText()
+
+        if line.startswith(self.prompt):
+            cmd = line[len(self.prompt):]
+        elif line.strip().startswith(">"):
+            cmd = line.strip().lstrip(">").strip()
+        else:
+            cmd = line
+
+        if cmd.strip():
+            self.history_list.append(cmd)
+            self.history_index = len(self.history_list)
+            self.moveCursor(QTextCursor.End)
+            self.runRequested.emit(cmd)
+        else:
+            self.append("")
+
+    def _replace_current_input(self, text):
+        self.moveCursor(QTextCursor.End)
+        self.moveCursor(QTextCursor.StartOfBlock, QTextCursor.KeepAnchor)
+        self.textCursor().removeSelectedText()
+        self.insertPlainText(self.prompt + text)
+
+class RDockWidget(QDockWidget):
     runRequested = pyqtSignal(str)
     settingsRequested = pyqtSignal()
     executionStateChanged = pyqtSignal(bool)
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._repl_history = []
-        self._repl_history_index = -1
+        self._last_command = None
         self._shortcuts = []
         self._handling_plus_click = False
         self._build_header()
@@ -93,15 +215,8 @@ class RConsoleDockWidget(QDockWidget):
 
     def _build_header(self):
         # title_label, run/settings/clear buttons
-        self.title = QWidget()
-        self.title_layout = QHBoxLayout(self.title)
-        self.title_label = QLabel("R Console") 
-        self.title_label.setStyleSheet("font-weight: 500; font-size: 14px;")
-        self.state = QLabel()
-        self.state.setFixedSize(12, 12)
-
-        self.title_layout.addWidget(self.state)    
-        self.title_layout.addWidget(self.title_label)
+        self.title = QLabel("R Console") 
+        self.title.setStyleSheet("font-weight: 500; font-size: 14px;")
 
         self.save_button = QToolButton()
         self.save_button.setIcon(self.style().standardIcon(QStyle.SP_DialogSaveButton))
@@ -183,48 +298,29 @@ class RConsoleDockWidget(QDockWidget):
         header_layout.setContentsMargins(8, 6, 8, 6)
         header_layout.setSpacing(6)
 
+        self.state = QLabel()
+        self.state.setFixedSize(12, 12)
+
         self.console_info_left = QLabel("R 4.3.1")
         self.console_info_left.setStyleSheet("font-weight:700;")
         self.console_info_right = QLabel("~/QGIS_R/")
         self.console_info_right.setStyleSheet("color:#8a8a8a;")
 
+        header_layout.addWidget(self.state)
         header_layout.addWidget(self.console_info_left)
         header_layout.addStretch()
         header_layout.addWidget(self.console_info_right)
 
-        # History
-        self.history = QTextEdit()
-        self.history.setReadOnly(True)
-        self.history.setFrameShape(QFrame.NoFrame)
-        self.history.setObjectName("consoleHistory")
+        self.console = RConsole()
+        self.console.setFrameShape(QFrame.NoFrame)
+        self.console.setObjectName("consoleHistory")
 
-        # REPL row
-        repl_row = QWidget()
-        repl_row.setObjectName("replRow")
-        repl_layout = QHBoxLayout(repl_row)
-        repl_layout.setContentsMargins(8, 6, 8, 6)
-        repl_layout.setSpacing(6)
-
-        self.prompt_label = QLabel(">")
-        self.prompt_label.setStyleSheet("color:#1f4ea8; font-weight:700;")
-
-        self.repl = QLineEdit()
-        self.repl.installEventFilter(self)
-        self.repl.setPlaceholderText("Type R code here and press Enter to execute...")
-        self.repl.setFrame(False)
-
-        repl_layout.addWidget(self.prompt_label)
-        repl_layout.addWidget(self.repl)
-
-        # Compose shell
         shell_layout.addWidget(header)
-        shell_layout.addWidget(self.history)
-        shell_layout.addWidget(repl_row)
+        shell_layout.addWidget(self.console)
 
         tab_layout.addWidget(self.console_shell)
         self.output_tabs.addTab(console_tab, "Console")
 
-        # Style for integrated look
         self.console_shell.setStyleSheet("""
             #consoleShell {
                 background: #f7f8fa;
@@ -239,10 +335,6 @@ class RConsoleDockWidget(QDockWidget):
                 background: #fcfcfd;
                 border: none;
                 padding: 4px;
-            }
-            #replRow {
-                border-top: 1px solid #e3e6eb;
-                background: #f7f8fa;
             }
         """)
 
@@ -262,12 +354,11 @@ class RConsoleDockWidget(QDockWidget):
         layout.addWidget(splitter)
 
     def _connect_signals(self):
-        # clicked.connect(...), returnPressed.connect(...)
         self.run_button.clicked.connect(self._emit_run)
         self.settings_button.clicked.connect(self.settingsRequested.emit)
         self.clear_button.clicked.connect(self._clear_console)
         self.save_button.clicked.connect(self._save_script)
-        self.repl.returnPressed.connect(self._emit_repl_run)
+        self.console.runRequested.connect(self._on_console_run)
         self.executionStateChanged.connect(self.set_running_state)
         self.editor_tabs.tabCloseRequested.connect(self._close_tab)
         self.editor_tabs.tabBarClicked.connect(self._on_editor_tab_clicked)
@@ -350,10 +441,6 @@ class RConsoleDockWidget(QDockWidget):
         run_cmd.activated.connect(self._emit_run)
         self._shortcuts.append(run_cmd)
 
-        repl_shift_enter = QShortcut(QKeySequence("Shift+Return"), self.repl)
-        repl_shift_enter.activated.connect(self._emit_repl_run)
-        self._shortcuts.append(repl_shift_enter)
-
         new_tab = QShortcut(QKeySequence("Ctrl+T"), self)
         new_tab.activated.connect(self._new_tab)
         self._shortcuts.append(new_tab)
@@ -372,17 +459,15 @@ class RConsoleDockWidget(QDockWidget):
 
     def set_running_state(self, is_running):
         self.run_button.setEnabled(not is_running)
-        self.repl.setEnabled(not is_running)
+        self.console.setReadOnly(is_running)
 
         if is_running:
             self._set_state_icon(is_running)
             self.state.setToolTip("Running")
-            self.prompt_label.setText("…")
         else:
             self._set_state_icon(is_running)
             self.state.setToolTip("Ready")
-            self.prompt_label.setText(">")
-            self.repl.setFocus()
+            self.console.setFocus()
 
     def _initialize_state(self):
         self._clear_console()
@@ -400,45 +485,9 @@ class RConsoleDockWidget(QDockWidget):
             return
         self.runRequested.emit(code)
 
-    def _emit_repl_run(self):
-        code = self.repl.text().strip()
-        if not code:
-            return
-        
-        self._add_to_repl_history(code)
+    def _on_console_run(self, code):
+        self._last_command = code
         self.runRequested.emit(code)
-        self.repl.clear()
-
-    def eventFilter(self, obj, event):
-        if obj is self.repl and event.type() == QEvent.KeyPress:
-            if event.key() == Qt.Key_Up:
-                self._show_previous_repl_history()
-                return True
-            if event.key() == Qt.Key_Down:
-                self._show_next_repl_history()
-                return True
-        return super().eventFilter(obj, event)
-    
-    def _add_to_repl_history(self, command):
-        self._repl_history.append(command)
-        self._repl_history_index = len(self._repl_history)
-
-    def _show_previous_repl_history(self):
-        if not self._repl_history:
-            return
-        if self._repl_history_index > 0:
-            self._repl_history_index -= 1
-        self.repl.setText(self._repl_history[self._repl_history_index])
-
-    def _show_next_repl_history(self):
-        if not self._repl_history:
-            return
-        if self._repl_history_index < len(self._repl_history) - 1:
-            self._repl_history_index += 1
-            self.repl.setText(self._repl_history[self._repl_history_index])
-        else:
-            self._repl_history_index = len(self._repl_history)
-            self.repl.clear()
 
     def _set_state_icon(self, is_running):
         if is_running:
@@ -450,7 +499,8 @@ class RConsoleDockWidget(QDockWidget):
         self.state.setPixmap(pm)
 
     def _clear_console(self):
-        self.history.clear()
+        self.console.clear()
+        self.console.insertPlainText(self.console.prompt)
 
     def _save_script(self):
         editor = self.editor_tabs.currentWidget()
@@ -502,87 +552,26 @@ class RConsoleDockWidget(QDockWidget):
         else:
             tab_bar.setTabTextColor(index, QColor("black"))
 
-    def _append_output(self, text):
-        lines = text.splitlines()
-        command = lines[0] if lines else ""
-        output = "\n".join(lines[1:]) if len(lines) > 1 else ""
-
-        self.history.append(self._render_repl_command_html(command))
-        
-        if output:
-            rendered_output = (
-                "<pre style='line-height:1.5;'>"
-                f"{html.escape(output)}"
-                "</pre>"
-            )
-            self.history.append(rendered_output)
-            
-        self._add_to_repl_history(command)
-
-    def _append_error(self, text):
-        self.history.append(f"<span style='color: red;'>{text}</span>")
-
     def print_to_console(self, line, result):
-        if result["error"] is not None:
-            self._append_output(f"{line}\n")
-            self._append_error(f"{result['error']}")
-        
-        if result["stdout"]:
-            self._append_output(f"{line}\n{result['stdout']}")
-
-    def _render_repl_command_html(self, text):
-        BLUE_PROMPT = "#0E0ED0"   # > azul oscuro
-        BLUE_FUNC = "#0E0ED0"     # funcion + parentesis
-        GREEN_STR = "#2e7d32"     # strings
-        BLACK_ARG = "#111111"     # argumentos no string
-
-        s = text
-        out = [f"<span style='color:{BLUE_PROMPT};'>&gt; </span>"]
-
-        # Busca inicio de llamada: nombre(...)
-        i = s.find("(")
-        if i == -1:
-            # Sin paréntesis: todo como "función/comando"
-            out.append(f"<span style='color:{BLUE_FUNC};'>{html.escape(s)}</span>")
-            return "".join(out)
-
-        # Parte izquierda: nombre de función
-        func_name = s[:i]
-        out.append(f"<span style='color:{BLUE_FUNC};'>{html.escape(func_name)}</span>")
-
-        # Desde el primer "(" en adelante
-        in_string = False
-        quote_char = ""
-        escape = False
-
-        # El paréntesis y estructura de llamada en azul; contenido en negro/verde
-        out.append(f"<span style='color:{BLUE_FUNC};'>(</span>")
-
-        for ch in s[i + 1:]:
-            if in_string:
-                # Dentro de string: verde (incluye comillas)
-                if escape:
-                    out.append(f"<span style='color:{GREEN_STR};'>{html.escape(ch)}</span>")
-                    escape = False
-                    continue
-                if ch == "\\":
-                    out.append(f"<span style='color:{GREEN_STR};'>\\</span>")
-                    escape = True
-                    continue
-                out.append(f"<span style='color:{GREEN_STR};'>{html.escape(ch)}</span>")
-                if ch == quote_char:
-                    in_string = False
-                    quote_char = ""
-                continue
-
-            # Fuera de string
-            if ch in ("'", '"'):
-                in_string = True
-                quote_char = ch
-                out.append(f"<span style='color:{GREEN_STR};'>{html.escape(ch)}</span>")
-            elif ch in ("(", ")"):
-                out.append(f"<span style='color:{BLUE_FUNC};'>{html.escape(ch)}</span>")
+        if line != self._last_command:
+            self.console.moveCursor(QTextCursor.End)
+            cursor = self.console.textCursor()
+            cursor.select(QTextCursor.BlockUnderCursor)
+            if cursor.selectedText().strip() == self.console.prompt.strip():
+                cursor.removeSelectedText()
+                cursor.insertText(self.console.prompt + line)
             else:
-                out.append(f"<span style='color:{BLACK_ARG};'>{html.escape(ch)}</span>")
+                self.console.append(self.console.prompt + line)
 
-        return "".join(out)
+        if result["error"] is not None:
+            self.console.append(result["error"])
+            self.console._highlighter.mark_error_block(self.console.document().lastBlock())
+
+        if result["stdout"]:
+            self.console.append(f"<pre style='margin:0;'>{html.escape(result['stdout'])}</pre>")
+
+        self._last_command = None
+
+    def new_line(self):
+        self.console.append(self.console.prompt)
+        self.console.moveCursor(QTextCursor.End)

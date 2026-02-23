@@ -1,7 +1,7 @@
 from qgis.PyQt.QtWidgets import QAction, QMessageBox
 from qgis.PyQt.QtGui import QIcon
 from os.path import join, dirname
-from .dock_widget import RConsoleDockWidget
+from .dock_widget import RDockWidget
 from .r_bridge import RBridge
 from qgis.PyQt.QtCore import Qt
 #from importlib.util import find_spec
@@ -34,7 +34,7 @@ class Console:
 
     def run(self):
         if self.dock is None:
-            self.dock = RConsoleDockWidget(self.iface.mainWindow())
+            self.dock = RDockWidget(self.iface.mainWindow())
             self.dock.runRequested.connect(self.on_run_requested)
             self.iface.addDockWidget(Qt.RightDockWidgetArea, self.dock)
 
@@ -59,4 +59,5 @@ class Console:
                 result = self.r_console.run_code(line)
                 self.dock.print_to_console(line, result)
         finally:
+            self.dock.new_line()
             self.dock.executionStateChanged.emit(False)
