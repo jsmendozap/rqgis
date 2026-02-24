@@ -1,4 +1,5 @@
-from qgis.PyQt.QtWidgets import QAction, QMessageBox
+from qgis.PyQt.QtWidgets import QAction
+from qgis.core import Qgis
 from qgis.PyQt.QtGui import QIcon
 from os.path import join, dirname
 from .dock_widget import RDockWidget
@@ -37,6 +38,7 @@ class Console:
             self.dock = RDockWidget(self.iface.mainWindow())
             self.dock.runRequested.connect(self.on_run_requested)
             self.iface.addDockWidget(Qt.RightDockWidgetArea, self.dock)
+            self._initialize_bridge()
 
         self.dock.show()
         self.dock.raise_()
@@ -47,17 +49,28 @@ class Console:
             return
 
         if self.r_console is None:
-            try:
-                self.r_console = RBridge(self.plugin_dir)
-            except Exception as e:
-                QMessageBox.critical(self.iface.mainWindow(), "R Console Error", f"Failed to initialize R Console: {e}")
+            if not self._initialize_bridge(popup=True):
                 return
 
         self.dock.executionStateChanged.emit(True)
+        width = self.dock.console.width_cols
+        
         try:
             for line in code.splitlines():
-                result = self.r_console.run_code(line)
+                result = self.r_console.run_code(line, width=width)
                 self.dock.print_to_console(line, result)
         finally:
             self.dock.new_line()
             self.dock.executionStateChanged.emit(False)
+
+    def _initialize_bridge(self, popup = False):
+        if self.r_console is not None:
+            return True
+            
+        try:
+            self.r_console = RBridge(self.plugin_dir, popup = popup)
+            self.dock.set_r_version(self.r_console.r_version)
+            return True
+        except Exception as e:
+            self.iface.messageBar().pushMessage("R Console Error", f"Failed to initialize R Console: {e}", Qgis.Warning)
+            return False

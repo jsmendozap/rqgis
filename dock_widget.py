@@ -2,6 +2,8 @@ from qgis.PyQt.QtCore import Qt, pyqtSignal, QSize, QRegularExpression
 from qgis.PyQt.QtGui import QIcon, QFont, QKeySequence, QColor, QTextCursor, QSyntaxHighlighter, QTextCharFormat
 from qgis.PyQt.Qsci import QsciScintilla, QsciLexerPython
 import html
+import os
+import re
 
 try:
     from qgis.PyQt.Qsci import QsciLexerR
@@ -120,6 +122,7 @@ class RConsole(QTextEdit):
         self.history_index = 0
         self.setAcceptRichText(False)
         self.setReadOnly(False)
+        self._width_cols = 80
         
         font = QFont("Monospace")
         font.setStyleHint(QFont.TypeWriter)
@@ -196,6 +199,16 @@ class RConsole(QTextEdit):
         self.textCursor().removeSelectedText()
         self.insertPlainText(self.prompt + text)
 
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        char_width = self.fontMetrics().averageCharWidth()
+        if char_width > 0:
+            self._width_cols = max(40, int(self.viewport().width() / char_width) - 20)
+
+    @property
+    def width_cols(self):
+        return self._width_cols
+
 class RDockWidget(QDockWidget):
     runRequested = pyqtSignal(str)
     settingsRequested = pyqtSignal()
@@ -204,6 +217,7 @@ class RDockWidget(QDockWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._last_command = None
+        self.wd = f"{os.path.expanduser('~')}"
         self._shortcuts = []
         self._handling_plus_click = False
         self._build_header()
@@ -301,9 +315,9 @@ class RDockWidget(QDockWidget):
         self.state = QLabel()
         self.state.setFixedSize(12, 12)
 
-        self.console_info_left = QLabel("R 4.3.1")
+        self.console_info_left = QLabel("")
         self.console_info_left.setStyleSheet("font-weight:700;")
-        self.console_info_right = QLabel("~/QGIS_R/")
+        self.console_info_right = QLabel("")
         self.console_info_right.setStyleSheet("color:#8a8a8a;")
 
         header_layout.addWidget(self.state)
@@ -426,6 +440,19 @@ class RDockWidget(QDockWidget):
                     self.editor_tabs.setCurrentIndex(i)
                     break
 
+    def set_r_version(self, r_version):
+        self.console_info_left.setText(f"R {r_version}")
+        self.console_info_right.setText(self.wd)
+
+    def _get_cwd(self, new_path):
+        path = new_path.split(os.sep)
+        if len(path) > 2:
+            path = path[-2:]
+            path.insert(0, '~')
+            path.insert(1, '...')
+            return os.sep.join(path)
+        return new_path
+
     def _refresh_close_buttons(self):
         tab_bar = self.editor_tabs.tabBar()
         for i in range(self.editor_tabs.count()):
@@ -501,7 +528,7 @@ class RDockWidget(QDockWidget):
     def _clear_console(self):
         self.console.clear()
         self.console.insertPlainText(self.console.prompt)
-
+    
     def _save_script(self):
         editor = self.editor_tabs.currentWidget()
         self._save_editor(editor)
@@ -553,6 +580,13 @@ class RDockWidget(QDockWidget):
             tab_bar.setTabTextColor(index, QColor("black"))
 
     def print_to_console(self, line, result):
+
+        if "setwd" in line and not result["error"]:
+            match = re.search(r"setwd\s*\(\s*['\"]([^'\"]+)['\"]\s*\)", line)
+            if match:
+                self.wd = self._get_cwd(match.group(1))
+                self.console_info_right.setText(self.wd)
+
         if line != self._last_command:
             self.console.moveCursor(QTextCursor.End)
             cursor = self.console.textCursor()

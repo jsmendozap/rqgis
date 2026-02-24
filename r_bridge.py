@@ -5,27 +5,38 @@ import json
 import os
 
 class RBridge:
-    def __init__(self, plugin_dir):
+    def __init__(self, plugin_dir, popup = False):
         self.plugin_dir = plugin_dir
+        self.popup = popup
         self.r = 'Rscript' if which('Rscript') is not None else self._request_r_path()
         self.process = self._start()
+        self.r_version = self._get_r_version()
+        self._set_home()
         
     def _request_r_path(self):
 
-        if 'r_path.json' in os.listdir(self.plugin_dir):
-            with open(os.path.join(self.plugin_dir, 'r_path.json'), 'r') as f:
-                data = json.load(f)
-                return data['path']
+        settings = os.path.join(self.plugin_dir, 'settings.json')
+        if os.path.exists(settings):
+            try:
+                with open(settings, 'r') as f:
+                    data = json.load(f)
+                    return data['path']
+            except Exception:
+                pass 
+
+        if not self.popup:
+            raise RuntimeError("Rscript not found in PATH.")
 
         path, ok = QInputDialog.getText(
             None,
             "R Not Found in PATH",
             "Enter the path to Rscript:"
         )
+        
         if not ok or not path.strip():
             raise RuntimeError("Rscript path not found.")
         
-        with open(os.path.join(self.plugin_dir, 'r_path.json'), 'w') as f:
+        with open(os.path.join(self.plugin_dir, 'settings.json'), 'w') as f:
             json.dump({'path': path.strip()}, f)
             return path.strip()
             
@@ -49,21 +60,23 @@ class RBridge:
         )
 
         ready = process.stdout.readline().strip()
-        print(ready)
 
         if ready != "READY":
             raise RuntimeError("Failed to start R worker process.")
         
         return process     
 
-    def run_code(self, code):
-        request = json.dumps({"code": code}) + "\n"
-        print(request)
+    def run_code(self, code, width=None):
+        data = {"code": code}
+        if width:
+            data["width"] = int(width)
+        request = json.dumps(data) + "\n"
+
         self.process.stdin.write(request)
         self.process.stdin.flush()
 
         response = self.process.stdout.readline().strip()
-        print(response)
+            
         return json.loads(response.strip())
     
     def stop(self):
@@ -71,4 +84,14 @@ class RBridge:
 
     def restart(self):
         self.stop()
-        self.process, self.stderr_thread = self._start()
+        self.process = self._start()
+        self.r_version = self._get_r_version()
+
+    def _get_r_version(self):
+        code = "cat(paste0(R.Version()$major, '.', R.Version()$minor))"
+        response = self.run_code(code)
+        return response["stdout"].strip()
+    
+    def _set_home(self):
+        code = f"setwd('{os.path.expanduser('~')}')"
+        self.run_code(code)

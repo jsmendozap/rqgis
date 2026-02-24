@@ -12,6 +12,10 @@ while (TRUE) {
     request <- fromJSON(line)
     code <- request$code
 
+    if (!is.null(request$width)) {
+        options(width = request$width)
+    }
+
     output_con <- textConnection("output", "w", local = TRUE)
     sink(output_con, type = "output")
     sink(output_con, type = "message")
