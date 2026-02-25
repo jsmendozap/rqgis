@@ -9,17 +9,21 @@ import os
 
 from .editor import EditorTab
 from .console_widget import RConsole
+from .settings_widget import RDockSettings
+
 
 class RDockWidget(QDockWidget):
     runRequested = pyqtSignal(str)
-    settingsRequested = pyqtSignal()
     executionStateChanged = pyqtSignal(bool)
+    restartRequested = pyqtSignal()
+    changeWd = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.settings = RDockSettings()
+        self.wd = self.settings.initial_wd.filePath()
         self._last_command = None
         self._shortcuts = []
-        self.wd = os.path.expanduser('~')
         self._handling_plus_click = False
         self._build_header()
         self._build_editor_area()
@@ -30,7 +34,7 @@ class RDockWidget(QDockWidget):
 
     def set_console_header(self, r_version):
         self.console_info_left.setText(f"R {r_version}")
-        self.console_info_right.setText(self.wd)
+        self._set_console_wd(self.wd)
 
     def set_running_state(self, is_running):
         self.run_button.setEnabled(not is_running)
@@ -50,14 +54,17 @@ class RDockWidget(QDockWidget):
 
         if result["wd"] != self.wd:
             self.wd = result["wd"]
-            self.console_info_right.setText(self._set_wd(self.wd))
-            self.console_info_right.setToolTip(self.wd)
+            self._set_console_wd(self.wd, False)
 
         self._last_command = None
 
     def new_line(self):
         self.console.append(self.console.prompt)
         self.console.moveCursor(QTextCursor.End)
+
+    def clear_cosole(self):
+        self.console.clear()
+        self.console.insertPlainText(self.console.prompt)
 
     def _build_header(self):
         # title_label, run/settings/clear buttons
@@ -67,6 +74,10 @@ class RDockWidget(QDockWidget):
         self.save_button = QToolButton()
         self.save_button.setIcon(self.style().standardIcon(QStyle.SP_DialogSaveButton))
         self.save_button.setToolTip("Save script")
+
+        self.open_button = QToolButton()
+        self.open_button.setIcon(self.style().standardIcon(QStyle.SP_DialogOpenButton))
+        self.open_button.setToolTip("Open script")
 
         self.run_button = QToolButton()
         self.run_button.setIcon(self.style().standardIcon(QStyle.SP_MediaPlay))
@@ -78,7 +89,11 @@ class RDockWidget(QDockWidget):
 
         self.clear_button = QToolButton()
         self.clear_button.setIcon(self.style().standardIcon(QStyle.SP_DialogResetButton))
-        self.clear_button.setToolTip("Clear")
+        self.clear_button.setToolTip("Clear console")
+
+        self.restart_button = QToolButton()
+        self.restart_button.setIcon(self.style().standardIcon(QStyle.SP_BrowserReload))
+        self.restart_button.setToolTip("Restart R")
 
     def _build_editor_area(self):
         # editor_tabs + QsciScintilla + lexer + margins
@@ -90,8 +105,9 @@ class RDockWidget(QDockWidget):
         corner_editor = QWidget()
         corner_layout = QHBoxLayout(corner_editor)
         corner_layout.setContentsMargins(0, 0, 4, 3)
-        corner_layout.addWidget(self.save_button)
         corner_layout.addWidget(self.run_button)
+        corner_layout.addWidget(self.save_button)
+        corner_layout.addWidget(self.open_button)
         corner_layout.addWidget(self.settings_button)
         self.editor_tabs.setCornerWidget(corner_editor, Qt.TopRightCorner)
 
@@ -144,7 +160,7 @@ class RDockWidget(QDockWidget):
 
         widget = self.editor_tabs.widget(index)
 
-        if widget._is_dirty:
+        if widget.is_dirty and not widget.is_empty():
             response = QMessageBox.question(
                 self,
                 "Unsaved Changes",
@@ -193,7 +209,7 @@ class RDockWidget(QDockWidget):
         
         tab_bar.setTabText(index, editor.name())
 
-        if editor._is_dirty:
+        if editor.is_dirty:
             tab_bar.setTabTextColor(index, QColor("#963939"))
         else:
             tab_bar.setTabTextColor(index, QColor("black"))
@@ -204,6 +220,54 @@ class RDockWidget(QDockWidget):
             if self.editor_tabs.tabText(i) == "+":
                 tab_bar.setTabButton(i, QTabBar.RightSide, None)
 
+    def _save_editor(self):
+        editor = self.editor_tabs.currentWidget()
+
+        if not isinstance(editor, EditorTab):
+            return False
+
+        path = editor.file_path
+        if path is None:
+            path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Save R Script",
+                "",
+                "R Scripts (*.R);;All Files (*)",
+            )
+            if not path:
+                return False  # cancelado
+
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(editor.text())
+
+        editor.mark_saved(path)
+        index = self.editor_tabs.indexOf(editor)
+        if index >= 0:
+            self._update_tab_dirty_style(index)
+        return True
+
+    def _open_script(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Open R Script",
+            "",
+            "R Scripts (*.R);;All Files (*)",
+        )
+
+        if not path:
+            return
+        
+        with open(path, "r", encoding="utf-8") as f:
+            code = f.read()
+
+        editor = self.editor_tabs.currentWidget()
+        if not editor.is_empty():
+            editor = self._new_tab()
+            
+        editor.setText(code)
+        editor.mark_saved(path)
+        self.editor_tabs.setCurrentWidget(editor)
+
     def _build_console_area(self):
         # output_tabs + history + repl + console_tab/layout
         self.output_tabs = QTabWidget()
@@ -212,6 +276,7 @@ class RDockWidget(QDockWidget):
         corner_layout = QHBoxLayout(corner_console)
         corner_layout.setContentsMargins(0, 0, 4, 3)
         corner_layout.addWidget(self.clear_button)
+        corner_layout.addWidget(self.restart_button)
         self.output_tabs.setCornerWidget(corner_console, Qt.TopRightCorner)
 
         # ---- Console tab container ----
@@ -219,7 +284,7 @@ class RDockWidget(QDockWidget):
         tab_layout = QVBoxLayout(console_tab)
         tab_layout.setContentsMargins(3, 3, 3, 3)
 
-        # ---- Unified console shell ----
+        # ---- console shell ----
         self.console_shell = QFrame()
         self.console_shell.setObjectName("consoleShell")
         shell_layout = QVBoxLayout(self.console_shell)
@@ -280,12 +345,8 @@ class RDockWidget(QDockWidget):
             icon = QIcon.fromTheme("media-playback-start", self.style().standardIcon(QStyle.SP_DialogYesButton))
         
         pm = icon.pixmap(QSize(12, 12))
-        self.state.setPixmap(pm)
-
-    def _clear_console(self):
-        self.console.clear()
-        self.console.insertPlainText(self.console.prompt)
-
+        self.state.setPixmap(pm)    
+        
     def _build_main_layout(self):
         # container, top_bar, splitter, setWidget
         container = QWidget()
@@ -303,23 +364,31 @@ class RDockWidget(QDockWidget):
 
     def _connect_signals(self):
         self.run_button.clicked.connect(self._emit_run)
-        self.settings_button.clicked.connect(self.settingsRequested.emit)
-        self.clear_button.clicked.connect(self._clear_console)
+        self.settings_button.clicked.connect(self.settings.show)
+        self.clear_button.clicked.connect(self.clear_cosole)
         self.save_button.clicked.connect(self._save_editor)
+        self.open_button.clicked.connect(self._open_script)
+        self.restart_button.clicked.connect(self.restartRequested.emit)
         self.console.runRequested.connect(self._on_console_run)
         self.executionStateChanged.connect(self.set_running_state)
         self.editor_tabs.tabCloseRequested.connect(self._close_tab)
         self.editor_tabs.tabBarClicked.connect(self._on_editor_tab_clicked)
         self.editor_tabs.currentChanged.connect(lambda i: self._update_tab_dirty_style(i))
+        self.settings.wdChanged.connect(self._set_console_wd)
         self._register_shortcuts()
 
-    def _set_wd(self, new_path):
+    def _set_console_wd(self, new_path, emit = True):
         path = new_path.split(os.sep)
+        self.wd = new_path
         
         if len(path) > 4:
             path = path[:2] + ["..."] + path[-2:]
-            return os.sep.join(path)
-        return new_path
+            new_path = os.sep.join(path)
+        
+        self.console_info_right.setText(new_path)
+        self.console_info_right.setToolTip(self.wd)
+        if emit:
+            self.changeWd.emit(self.wd)
 
     def _register_shortcuts(self):
         run_ctrl = QShortcut(QKeySequence("Ctrl+Return"), self)
@@ -339,7 +408,7 @@ class RDockWidget(QDockWidget):
         self._shortcuts.append(close_tab)
 
         clear = QShortcut(QKeySequence("Ctrl+L"), self)
-        clear.activated.connect(self._clear_console)
+        clear.activated.connect(self.clear_cosole)
         self._shortcuts.append(clear)
 
         save = QShortcut(QKeySequence("Ctrl+S"), self)
@@ -347,7 +416,7 @@ class RDockWidget(QDockWidget):
         self._shortcuts.append(save)
 
     def _initialize_state(self):
-        self._clear_console()
+        self.clear_cosole()
         self.set_running_state(False)
         self._update_tab_dirty_style()
         
@@ -365,29 +434,3 @@ class RDockWidget(QDockWidget):
     def _on_console_run(self, code):
         self._last_command = code
         self.runRequested.emit(code)
-
-    def _save_editor(self):
-        editor = self.editor_tabs.currentWidget()
-
-        if not isinstance(editor, EditorTab):
-            return False
-
-        path = editor.file_path
-        if path is None:
-            path, _ = QFileDialog.getSaveFileName(
-                self,
-                "Save R Script",
-                "",
-                "R Scripts (*.R);;All Files (*)",
-            )
-            if not path:
-                return False  # cancelado
-
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(editor.text())
-
-        editor.mark_saved(path)
-        index = self.editor_tabs.indexOf(editor)
-        if index >= 0:
-            self._update_tab_dirty_style(index)
-        return True

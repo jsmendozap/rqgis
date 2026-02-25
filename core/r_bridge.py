@@ -1,6 +1,6 @@
 from qgis.PyQt.QtCore import QSettings
 from shutil import which
-from subprocess import Popen, PIPE, TimeoutExpired
+import subprocess
 import json
 import os
 
@@ -14,7 +14,7 @@ class RBridge:
         self.r = self._find_rscript()
         self.process = self._start()
         self.r_version = self._get_r_version()
-        self._set_home()
+        self._set_wd()
         
     def run_code(self, code, width=None):
         data = {"code": code}
@@ -38,15 +38,14 @@ class RBridge:
         self.process.terminate()
         try:
             self.process.wait(timeout=2)
-        except TimeoutExpired:
+        except subprocess.TimeoutExpired:
             self.process.kill()
             self.process.wait(timeout=2)
 
     def restart(self):
         self.stop()
         self.process = self._start()
-        self.r_version = self._get_r_version()
-        self._set_home()
+        self._set_wd()
             
     def _start(self):
         base = os.path.basename(self.r).lower()
@@ -57,13 +56,16 @@ class RBridge:
         else:
             args.append("r_worker.R")
 
-        process = Popen(
+        creationflags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0
+
+        process = subprocess.Popen(
             args,
-            stdin=PIPE, 
-            stdout=PIPE, 
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
             text=True,
             bufsize=1,
-            cwd=self.plugin_dir
+            cwd=self.plugin_dir, 
+            creationflags=creationflags
         )
 
         ready = process.stdout.readline().strip()
@@ -89,6 +91,8 @@ class RBridge:
         
         raise RPathRequiredError("Rscript not found in PATH.")
 
-    def _set_home(self):
-        home = os.path.expanduser('~').replace('\\', '/')
-        self.run_code(f"setwd('{home}')")
+    def _set_wd(self):
+        wd = self.settings.value("initial_wd")
+        if not wd:
+            wd = os.path.expanduser('~').replace('\\', '/')
+        self.run_code(f"setwd('{wd}')")

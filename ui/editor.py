@@ -14,7 +14,7 @@ class EditorTab(QsciScintilla):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setUtf8(True)
-        self._is_dirty = True
+        self.is_dirty = True
         self.file_path = None
         self._configure_editor()
         self.textChanged.connect(self.mark_dirty)
@@ -40,15 +40,18 @@ class EditorTab(QsciScintilla):
 
     def mark_saved(self, path):
         self.file_path = path
-        if self._is_dirty:
-            self._is_dirty = False
+        if self.is_dirty:
+            self.is_dirty = False
             self.dirtyChanged.emit(False)
 
     def mark_dirty(self):
-        if not self._is_dirty:
-            self._is_dirty = True
+        if not self.is_dirty:
+            self.is_dirty = True
             self.dirtyChanged.emit(True)
 
     def name(self):
         base = self.file_path.split("/")[-1] if self.file_path else "Untitled.R"
-        return f"*{base}" if self._is_dirty else base
+        return f"*{base}" if self.is_dirty else base
+
+    def is_empty(self):
+        return self.text().strip() == ""

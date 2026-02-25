@@ -51,6 +51,8 @@ class Console:
         if self.dock is None:
             self.dock = RDockWidget(self.iface.mainWindow())
             self.dock.runRequested.connect(self.on_run_requested)
+            self.dock.restartRequested.connect(self._on_restart_requested)
+            self.dock.changeWd.connect(self._on_change_wd)
             self.iface.addDockWidget(Qt.RightDockWidgetArea, self.dock)
 
         self._ensure_runner(False)
@@ -155,4 +157,12 @@ class Console:
         except Exception:
             return False
 
+    def _on_restart_requested(self):
+        if self.runner:
+            self.dock.console.append("\nRestarting R session...\n")
+            self.runner.restart_r()
+            self.dock.clear_cosole()
     
+    def _on_change_wd(self, path):
+        if self.runner:
+            self.runner.change_wd(path)

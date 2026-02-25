@@ -44,6 +44,15 @@ class RWorker(QObject):
             self.run_finished.emit()
 
     @pyqtSlot()
+    def restart_r(self):
+        if self._bridge:
+            try:
+                self._bridge.restart()
+                self.initialized.emit(self._bridge.r_version)
+            except Exception as e:
+                self.failed.emit(f"Failed to restart R: {e}")
+
+    @pyqtSlot()
     def shutdown(self):
         try:
             if self._bridge is not None:
@@ -52,6 +61,14 @@ class RWorker(QObject):
             pass
         finally:
             self._bridge = None
+
+    @pyqtSlot(str)
+    def change_wd(self, path):
+        if self._bridge:
+            try:
+                self._bridge.run_code(f"setwd('{path}')")
+            except Exception as e:
+                self.failed.emit(f"Failed to change working directory: {e}")
 
 
 class RRunner(QObject):
@@ -63,6 +80,8 @@ class RRunner(QObject):
     path_required = pyqtSignal()
     request_initialize = pyqtSignal(str)
     request_run = pyqtSignal(str, int)
+    request_restart = pyqtSignal()
+    request_change_wd = pyqtSignal(str)
 
     def __init__(self):
         super().__init__()
@@ -72,6 +91,8 @@ class RRunner(QObject):
 
         self.request_initialize.connect(self._worker.initialize)
         self.request_run.connect(self._worker.run_code_block)
+        self.request_restart.connect(self._worker.restart_r)
+        self.request_change_wd.connect(self._worker.change_wd)
         
         self._worker.initialized.connect(self.initialized)
         self._worker.path_required.connect(self.path_required)
@@ -88,6 +109,9 @@ class RRunner(QObject):
     def run(self, code, width):
         self.request_run.emit(code, width)
 
+    def restart_r(self):
+        self.request_restart.emit()
+
     def stop(self):
         QMetaObject.invokeMethod(
             self._worker,
@@ -96,3 +120,6 @@ class RRunner(QObject):
         )
         self._thread.quit()
         self._thread.wait()
+
+    def change_wd(self, path):
+        self.request_change_wd.emit(path)
