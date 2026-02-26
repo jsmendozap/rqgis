@@ -32,11 +32,9 @@ class RWorker(QObject):
 
         self.busy_changed.emit(True)
         try:
-            for line in code.splitlines():
-                if not line.strip():
-                    continue
-                result = self._bridge.run_code(line, width=width)
-                self.line_result.emit(line, result)
+            for expression in self._split_into_expressions(code):
+                result = self._bridge.run_code(expression, width=width)
+                self.line_result.emit(expression, result)
         except Exception as e:
             self.failed.emit(f"Execution error: {e}")
         finally:
@@ -69,6 +67,27 @@ class RWorker(QObject):
                 self._bridge.run_code(f"setwd('{path}')")
             except Exception as e:
                 self.failed.emit(f"Failed to change working directory: {e}")
+
+    def _split_into_expressions(self, code):
+        expressions = []
+        buffer = []
+        opens = 0
+        
+        for line in code.splitlines():
+            buffer.append(line)
+            opens += line.count('(') + line.count('[') + line.count('{')
+            opens -= line.count(')') + line.count(']') + line.count('}')
+            
+            is_pipe = line.rstrip().endswith(('|>', '%>%', '%T>%', '+'))
+            if opens <= 0 and not is_pipe:
+                expressions.append('\n'.join(buffer))
+                buffer = []
+                opens = 0
+        
+        if buffer:
+            expressions.append('\n'.join(buffer))
+        
+        return expressions
 
 
 class RRunner(QObject):

@@ -19,6 +19,22 @@ class EditorTab(QsciScintilla):
         self._configure_editor()
         self.textChanged.connect(self.mark_dirty)
 
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Return and event.modifiers() == Qt.NoModifier:
+            line, col = self.getCursorPosition()
+            text = self.text(line)
+            before_cursor = text[:col].strip() if text else ""
+
+            super().keyPressEvent(event)
+
+            if before_cursor.endswith(("{", "(", "[", "%>%", "|>", "+")):
+                new_line = line + 1
+                prev_indent = self.indentation(line)
+                self.setIndentation(new_line, prev_indent + self.tabWidth())
+                self.setCursorPosition(new_line, prev_indent + self.tabWidth())
+        else:
+            super().keyPressEvent(event)
+
     def _configure_editor(self):
         font = QFont("Monospace")
         font.setStyleHint(QFont.TypeWriter)
@@ -32,6 +48,9 @@ class EditorTab(QsciScintilla):
         self.setFrameShape(QFrame.NoFrame)
         self.setBraceMatching(QsciScintilla.SloppyBraceMatch)
         self.setAutoIndent(True)
+        self.setTabWidth(2)
+        self.setIndentationsUseTabs(False)
+        self.setIndentationGuides(True)
 
         if QsciLexerR is not None:
             self.setLexer(QsciLexerR(self))
