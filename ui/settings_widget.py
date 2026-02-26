@@ -1,6 +1,6 @@
 from qgis.PyQt.QtWidgets import QDialog, QFormLayout, QDialogButtonBox, QVBoxLayout
 from qgis.gui import QgsFileWidget
-from qgis.PyQt.QtCore import QSettings, pyqtSignal
+from qgis.PyQt.QtCore import QSettings
 import os
 
 class RDockSettings(QDialog):

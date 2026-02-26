@@ -68,7 +68,7 @@ class Console:
                 self.runner = RRunner()
                 self.runner.initialized.connect(self._on_runner_initialized)
                 self.runner.path_required.connect(self._on_path_required)
-                self.runner.line_result.connect(self.dock.print_to_console)
+                self.runner.line_result.connect(self.dock.append_result)
                 self.runner.run_finished.connect(self._on_runner_finished)
                 self.runner.failed.connect(self._on_runner_failed)
                 self.runner.busy_changed.connect(self.dock.executionStateChanged.emit)
@@ -93,7 +93,7 @@ class Console:
             self._pending_code = code   
             return
 
-        width = self.dock.console.width_cols
+        width = self.dock.console_width()
         self.runner.run(code, width)
 
     def _on_runner_initialized(self, r_version):
@@ -104,11 +104,11 @@ class Console:
         if self._pending_code:
             code = self._pending_code
             self._pending_code = None
-            width = self.dock.console.width_cols
+            width = self.dock.console_width()
             self.runner.run(code, width)
 
     def _on_runner_finished(self):
-        self.dock.new_line()
+        self.dock.new_console_prompt()
 
     def _on_runner_failed(self, msg):
         self._runner_ready = False
@@ -159,9 +159,8 @@ class Console:
 
     def _on_restart_requested(self):
         if self.runner:
-            self.dock.console.append("\nRestarting R session...\n")
             self.runner.restart_r()
-            self.dock.clear_cosole()
+            self.dock.clean_console()
     
     def _on_change_wd(self, path):
         if self.runner:

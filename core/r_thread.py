@@ -64,7 +64,7 @@ class RWorker(QObject):
     def change_wd(self, path):
         if self._bridge:
             try:
-                self._bridge.run_code(f"setwd('{path}')")
+                self._bridge.run_code(f'setwd("{path}")')
             except Exception as e:
                 self.failed.emit(f"Failed to change working directory: {e}")
 
@@ -74,6 +74,10 @@ class RWorker(QObject):
         opens = 0
         
         for line in code.splitlines():
+
+            if line.strip().startswith("#"):
+                continue
+            
             buffer.append(line)
             opens += line.count('(') + line.count('[') + line.count('{')
             opens -= line.count(')') + line.count(']') + line.count('}')

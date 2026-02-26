@@ -1,13 +1,13 @@
 from qgis.PyQt.QtCore import Qt, pyqtSignal, QSize
-from qgis.PyQt.QtGui import QIcon, QKeySequence, QColor, QTextCursor
+from qgis.PyQt.QtGui import QIcon, QKeySequence
 from qgis.PyQt.QtWidgets import (
     QDockWidget, QWidget, QVBoxLayout, QHBoxLayout, QToolButton,
     QTabWidget, QSplitter, QLabel, QStyle, QFrame, QShortcut,
-    QFileDialog, QTabBar, QMessageBox
+    QFileDialog
 )
 import os
 
-from .editor import EditorTab
+from .editor import EditorTabsWidget
 from .console_widget import RConsole
 from .settings_widget import RDockSettings
 
@@ -24,7 +24,6 @@ class RDockWidget(QDockWidget):
         self.wd = self.settings.initial_wd.filePath()
         self._last_command = None
         self._shortcuts = []
-        self._handling_plus_click = False
         self._build_header()
         self._build_editor_area()
         self._build_console_area()
@@ -48,7 +47,7 @@ class RDockWidget(QDockWidget):
             self.state.setToolTip("Ready")
             self.console.setFocus()
 
-    def print_to_console(self, line, result):
+    def append_result(self, line, result):
 
         self.console.add_to_console(line, result, self._last_command)
 
@@ -58,13 +57,14 @@ class RDockWidget(QDockWidget):
 
         self._last_command = None
 
-    def new_line(self):
-        self.console.append(self.console.prompt)
-        self.console.moveCursor(QTextCursor.End)
+    def clean_console(self):
+        self.console.clean()
 
-    def clear_cosole(self):
-        self.console.clear()
-        self.console.insertPlainText(self.console.prompt)
+    def new_console_prompt(self):
+        self.console.new_line()
+
+    def console_width(self):
+        return self.console.width_cols
 
     def _build_header(self):
         # title_label, run/settings/clear buttons
@@ -95,16 +95,12 @@ class RDockWidget(QDockWidget):
         self.restart_button.setIcon(self.style().standardIcon(QStyle.SP_BrowserReload))
         self.restart_button.setToolTip("Restart R")
 
-        self.wd_buttom = QToolButton()
-        self.wd_buttom.setIcon(self.style().standardIcon(QStyle.SP_DirOpenIcon))
-        self.wd_buttom.setToolTip("Change working directory")
+        self.wd_button = QToolButton()
+        self.wd_button.setIcon(self.style().standardIcon(QStyle.SP_DirOpenIcon))
+        self.wd_button.setToolTip("Change working directory")
 
     def _build_editor_area(self):
-        # editor_tabs + QsciScintilla + lexer + margins
-        self.editor_tabs = QTabWidget()
-        self.editor_tabs.setTabsClosable(True)
-        self.editor = self._new_tab()
-        self._add_plus_tab()
+        self.editor_tabs = EditorTabsWidget(self)
 
         corner_editor = QWidget()
         corner_layout = QHBoxLayout(corner_editor)
@@ -115,163 +111,6 @@ class RDockWidget(QDockWidget):
         corner_layout.addWidget(self.settings_button)
         self.editor_tabs.setCornerWidget(corner_editor, Qt.TopRightCorner)
 
-    def _new_tab(self):
-        tab = EditorTab()
-        tab.dirtyChanged.connect(lambda _dirty, editor=tab: self._update_tab_dirty_style(self.editor_tabs.indexOf(editor)))
-
-        position = self.editor_tabs.count()
-        if position > 0 and self.editor_tabs.tabText(position - 1) == "+":
-            position -= 1
-
-        idx = self.editor_tabs.insertTab(position, tab, tab.name())
-        self.editor_tabs.setCurrentIndex(idx)
-        self._update_tab_dirty_style(idx)
-        self._refresh_close_buttons()
-        return tab
-
-    def _add_plus_tab(self):
-        plus = QWidget()
-        idx = self.editor_tabs.addTab(plus, "+")
-        self.editor_tabs.tabBar().setTabTextColor(idx, QColor("#666666"))
-        self._refresh_close_buttons()
-
-    def _on_editor_tab_clicked(self, index):
-        if index < 0:
-            return
-
-        if self.editor_tabs.tabText(index) != "+":
-            return
-    
-        if self._handling_plus_click:
-            return
-
-        self._handling_plus_click = True
-        try:
-            self.editor_tabs.removeTab(index)  
-            self._new_tab()                    
-            self._add_plus_tab()               
-            self._refresh_close_buttons()
-        finally:
-            self._handling_plus_click = False
-
-    def _close_tab(self, index):
-        if index is None:
-            index = self.editor_tabs.currentIndex()
-        if index < 0:
-            return
-        if self.editor_tabs.tabText(index) == "+":
-            return
-
-        widget = self.editor_tabs.widget(index)
-
-        if widget.is_dirty and not widget.is_empty():
-            response = QMessageBox.question(
-                self,
-                "Unsaved Changes",
-                f"The script '{widget.name().lstrip('*')}' has unsaved changes. Do you want to save before closing?",
-                QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel,
-                QMessageBox.Save
-            ) 
-            if response == QMessageBox.Save:
-                if not self._save_editor(widget):
-                    return
-            elif response == QMessageBox.Cancel:
-                return
-
-        self.editor_tabs.removeTab(index)
-
-        if widget is not None:
-            widget.deleteLater()
-
-        real_tabs = [i for i in range(self.editor_tabs.count()) if self.editor_tabs.tabText(i) != "+"]
-        if not real_tabs:
-            self._new_tab()
-        
-        self._refresh_close_buttons()
-
-        current = self.editor_tabs.currentIndex()
-        if current >= 0 and self.editor_tabs.tabText(current) == "+":
-            for i in range(self.editor_tabs.count()):
-                if self.editor_tabs.tabText(i) != "+":
-                    self.editor_tabs.setCurrentIndex(i)
-                    break
-
-    def _update_tab_dirty_style(self, index=None):
-        if index is None:
-            index = self.editor_tabs.currentIndex()
-        if index < 0:
-            return
-
-        editor = self.editor_tabs.widget(index)
-        if editor is None:
-            return
-
-        tab_bar = self.editor_tabs.tabBar()
-        
-        if not isinstance(editor, EditorTab):
-             return
-        
-        tab_bar.setTabText(index, editor.name())
-
-        if editor.is_dirty:
-            tab_bar.setTabTextColor(index, QColor("#963939"))
-        else:
-            tab_bar.setTabTextColor(index, QColor("black"))
-    
-    def _refresh_close_buttons(self):
-        tab_bar = self.editor_tabs.tabBar()
-        for i in range(self.editor_tabs.count()):
-            if self.editor_tabs.tabText(i) == "+":
-                tab_bar.setTabButton(i, QTabBar.RightSide, None)
-
-    def _save_editor(self):
-        editor = self.editor_tabs.currentWidget()
-
-        if not isinstance(editor, EditorTab):
-            return False
-
-        path = editor.file_path
-        if path is None:
-            path, _ = QFileDialog.getSaveFileName(
-                self,
-                "Save R Script",
-                "",
-                "R Scripts (*.R);;All Files (*)",
-            )
-            if not path:
-                return False  # cancelado
-
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(editor.text())
-
-        editor.mark_saved(path)
-        index = self.editor_tabs.indexOf(editor)
-        if index >= 0:
-            self._update_tab_dirty_style(index)
-        return True
-
-    def _open_script(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Open R Script",
-            "",
-            "R Scripts (*.R);;All Files (*)",
-        )
-
-        if not path:
-            return
-        
-        with open(path, "r", encoding="utf-8") as f:
-            code = f.read()
-
-        editor = self.editor_tabs.currentWidget()
-        if not editor.is_empty():
-            editor = self._new_tab()
-            
-        editor.setText(code)
-        editor.mark_saved(path)
-        self.editor_tabs.setCurrentWidget(editor)
-
     def _build_console_area(self):
         # output_tabs + history + repl + console_tab/layout
         self.output_tabs = QTabWidget()
@@ -281,7 +120,7 @@ class RDockWidget(QDockWidget):
         corner_layout.setContentsMargins(0, 0, 4, 3)
         corner_layout.addWidget(self.clear_button)
         corner_layout.addWidget(self.restart_button)
-        corner_layout.addWidget(self.wd_buttom)
+        corner_layout.addWidget(self.wd_button)
         self.output_tabs.setCornerWidget(corner_console, Qt.TopRightCorner)
 
         # ---- Console tab container ----
@@ -370,16 +209,13 @@ class RDockWidget(QDockWidget):
     def _connect_signals(self):
         self.run_button.clicked.connect(self._emit_run)
         self.settings_button.clicked.connect(self.settings.show)
-        self.clear_button.clicked.connect(self.clear_cosole)
-        self.save_button.clicked.connect(self._save_editor)
-        self.open_button.clicked.connect(self._open_script)
+        self.clear_button.clicked.connect(self.clean_console)
+        self.save_button.clicked.connect(self.editor_tabs.save_current)
+        self.open_button.clicked.connect(self.editor_tabs.open_script)
         self.restart_button.clicked.connect(self.restartRequested.emit)
-        self.wd_buttom.clicked.connect(self._on_change_wd)
+        self.wd_button.clicked.connect(self._on_change_wd)
         self.console.runRequested.connect(self._on_console_run)
         self.executionStateChanged.connect(self.set_running_state)
-        self.editor_tabs.tabCloseRequested.connect(self._close_tab)
-        self.editor_tabs.tabBarClicked.connect(self._on_editor_tab_clicked)
-        self.editor_tabs.currentChanged.connect(lambda i: self._update_tab_dirty_style(i))
         self._register_shortcuts()
 
     def _on_change_wd(self):
@@ -409,34 +245,15 @@ class RDockWidget(QDockWidget):
         run_cmd.activated.connect(self._emit_run)
         self._shortcuts.append(run_cmd)
 
-        new_tab = QShortcut(QKeySequence("Ctrl+T"), self)
-        new_tab.activated.connect(self._new_tab)
-        self._shortcuts.append(new_tab)
-
-        close_tab = QShortcut(QKeySequence("Ctrl+W"), self)
-        close_tab.activated.connect(lambda: self._close_tab(self.editor_tabs.currentIndex()))
-        self._shortcuts.append(close_tab)
-
-        clear = QShortcut(QKeySequence("Ctrl+L"), self)
-        clear.activated.connect(self.clear_cosole)
-        self._shortcuts.append(clear)
-
-        save = QShortcut(QKeySequence("Ctrl+S"), self)
-        save.activated.connect(self._save_editor)
-        self._shortcuts.append(save)
+        self.editor_tabs.register_shortcuts()
+        self.console.register_shortcuts()
 
     def _initialize_state(self):
-        self.clear_cosole()
+        self.clean_console()
         self.set_running_state(False)
-        self._update_tab_dirty_style()
         
     def _emit_run(self):
-        editor = self.editor_tabs.currentWidget()
-
-        if not isinstance(editor, EditorTab):
-            return
-
-        code = editor.text().strip()
+        code = self.editor_tabs.current_code().strip()
         if not code:
             return
         self.runRequested.emit(code)

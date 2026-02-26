@@ -1,6 +1,6 @@
 from qgis.PyQt.QtCore import Qt, pyqtSignal
-from qgis.PyQt.QtGui import QFont, QTextCursor
-from qgis.PyQt.QtWidgets import QTextEdit
+from qgis.PyQt.QtGui import QFont, QTextCursor, QKeySequence
+from qgis.PyQt.QtWidgets import QTextEdit, QShortcut
 from .highlighter import RHighlighter
 import html
 
@@ -12,6 +12,7 @@ class RConsole(QTextEdit):
         self.prompt = "> "
         self.history_list = []
         self.history_index = 0
+        self._shortcuts = []
         self.setAcceptRichText(False)
         self.setReadOnly(False)
         self._width_cols = 80
@@ -22,6 +23,11 @@ class RConsole(QTextEdit):
         
         self._highlighter = RHighlighter(self.document())
         self.selectionChanged.connect(self._clamp_selection)
+
+    def register_shortcuts(self):
+        clear = QShortcut(QKeySequence("Ctrl+L"), self)
+        clear.activated.connect(self.clean)
+        self._shortcuts.append(clear)
 
     def add_to_console(self, line, result, last_command):
         if line != last_command:
@@ -41,6 +47,14 @@ class RConsole(QTextEdit):
         if result["stdout"]:
             self.append(f"<pre style='margin:0;'>{html.escape(result['stdout'])}</pre>")
 
+    def clean(self):
+        self.clear()
+        self.insertPlainText(self.prompt)
+
+    def new_line(self):
+        self.append(self.prompt)
+        self.moveCursor(QTextCursor.End)
+
     def keyPressEvent(self, event):
         cursor = self.textCursor()
         
@@ -54,11 +68,10 @@ class RConsole(QTextEdit):
                 return
         
         if event.key() in (Qt.Key_Backspace, Qt.Key_Delete, Qt.Key_Left):
-            if event.key() in (Qt.Key_Backspace, Qt.Key_Delete, Qt.Key_Left):
-                cursor = self.textCursor()
-                prompt_end = self.document().lastBlock().position() + len(self.prompt)
-                if cursor.position() <= prompt_end:
-                    return
+            cursor = self.textCursor()
+            prompt_end = self.document().lastBlock().position() + len(self.prompt)
+            if cursor.position() <= prompt_end:
+                return
 
         if event.key() == Qt.Key_Up:
             if self.history_index > 0:
