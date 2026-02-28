@@ -41,7 +41,6 @@ class RWorker(QObject):
         self.busy_changed.emit(True)
         try:
             for result in self.bridge.run_code(code, width=width):
-                print(result)
                 if result.expression:
                     self.line_result.emit(result.expression, result)
                 elif result:

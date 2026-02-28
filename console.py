@@ -2,12 +2,19 @@ from qgis.PyQt.QtWidgets import QAction, QInputDialog
 from qgis.core import Qgis
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtCore import Qt
+from enum import Enum, auto
 import os
 
 from .ui.dock_widget import RDockWidget
 from .core.r_thread import RRunner
 from .core import plugin_settings
 from .core import utils
+
+class RSessionState(Enum):
+    UNINITIALIZED = auto()
+    INITIALIZING = auto()
+    READY = auto()
+    FAILED = auto()
 
 class Console:
     def __init__(self, iface):
@@ -16,9 +23,8 @@ class Console:
         self.action = None
         self.dock = None
         self.runner = None
-        self._allow_path_popup = None
-        self._runner_ready = False
-        self._initializing = False
+        self._state = RSessionState.UNINITIALIZED
+        self._allow_path_popup = False
         self._pending_code = None
 
     def initGui(self):
@@ -35,13 +41,7 @@ class Console:
             self.iface.removeToolBarIcon(self.action)
             self.action = None
 
-        if self.runner is not None:
-            self.runner.stop()
-            self.runner = None
-
-        self._runner_ready = False
-        self._initializing = False
-        self._pending_code = None
+        self._stop_runner()
 
         if self.dock is not None:
             self.dock.deleteLater()
@@ -50,9 +50,10 @@ class Console:
     def run(self):
         if self.dock is None:
             self.dock = RDockWidget(self.iface.mainWindow())
-            self.dock.runRequested.connect(self.on_run_requested)
+            self.dock.runRequested.connect(self._on_run_requested)
             self.dock.restartRequested.connect(self._on_restart_requested)
             self.dock.changeWd.connect(self._on_change_wd)
+            self.dock.closing.connect(self._stop_runner)
             self.iface.addDockWidget(Qt.RightDockWidgetArea, self.dock)
 
         self._ensure_runner(False)
@@ -60,65 +61,66 @@ class Console:
         self.dock.show()
         self.dock.raise_()
 
+    def _start_runner(self):
+        self.runner = RRunner()
+        self.runner.initialized.connect(self._on_runner_initialized)
+        self.runner.path_required.connect(self._on_path_required)
+        self.runner.line_result.connect(self.dock.append_result)
+        self.runner.welcome_result.connect(self.dock.append_welcome)
+        self.runner.run_finished.connect(self._on_runner_finished)
+        self.runner.failed.connect(self._on_runner_failed)
+        self.runner.busy_changed.connect(self.dock.executionStateChanged.emit)
+
+    def _stop_runner(self):
+        if self.runner is not None:
+            self.runner.stop()
+            self.runner = None
+
+        self._state = RSessionState.UNINITIALIZED
+        self._pending_code = None
+        self.dock.clean_console(prompt=False)
+
     def _ensure_runner(self, popup):
         self._allow_path_popup = popup
-        
         try:
             if self.runner is None:
-                self.runner = RRunner()
-                self.runner.initialized.connect(self._on_runner_initialized)
-                self.runner.path_required.connect(self._on_path_required)
-                self.runner.line_result.connect(self.dock.append_result)
-                self.runner.welcome_result.connect(self.dock.append_welcome)
-                self.runner.run_finished.connect(self._on_runner_finished)
-                self.runner.failed.connect(self._on_runner_failed)
-                self.runner.busy_changed.connect(self.dock.executionStateChanged.emit)
-
-            if not self._runner_ready and not self._initializing:
-                self._initializing = True
+                self._start_runner()
+            if self._state == RSessionState.UNINITIALIZED:
+                self._state = RSessionState.INITIALIZING
                 self.runner.initialize()
-
             return True
         except Exception as e:
             self.iface.messageBar().pushMessage("R Console Error", str(e), Qgis.Warning)
             return False
 
-    def on_run_requested(self, code):
+    def _on_run_requested(self, code):
         if not code.strip():
             return
 
         if not self._ensure_runner(True):
             return
 
-        if self._initializing or not self._runner_ready:
+        if self._state != RSessionState.READY:
             if self._pending_code is None:
-                self._pending_code = code   
+                self._pending_code = code
             return
 
-        width = self.dock.console_width()
-        self.runner.run(code, width)
+        self.runner.run(code, self.dock.console_width())
 
     def _on_runner_initialized(self):
-        self._runner_ready = True
-        self._initializing = False
-        self.dock.set_console_header()
-
-        width = self.dock.console_width()
-        self.runner.welcome_message(width)
+        self._state = RSessionState.READY
+        self.runner.welcome_message(self.dock.console_width())
         self.dock.new_console_prompt()
 
         if self._pending_code:
-            code = self._pending_code
-            self._pending_code = None
-            width = self.dock.console_width()
-            self.runner.run(code, width)
+            code, self._pending_code = self._pending_code, None
+            self.runner.run(code, self.dock.console_width())
 
     def _on_runner_finished(self):
         self.dock.new_console_prompt()
 
     def _on_runner_failed(self, msg):
-        self._runner_ready = False
-        self._initializing = False
+        self._state = RSessionState.FAILED
         self._pending_code = None
         self.iface.messageBar().pushMessage("R Console Error", msg, Qgis.Warning)
 
@@ -144,14 +146,17 @@ class Console:
             return
 
         plugin_settings.set_r_path(path)
-        self._initializing = True
+        self._state = RSessionState.INITIALIZING
         self.runner.initialize()
 
-    def _on_restart_requested(self):
+    def _on_restart_requested(self, path):
         if self.runner:
+            self._state = RSessionState.INITIALIZING
             self.runner.restart_r()
+            self.runner.change_wd(path)
             self.dock.clean_console(prompt=False)
     
     def _on_change_wd(self, path):
         if self.runner:
             self.runner.change_wd(path)
+

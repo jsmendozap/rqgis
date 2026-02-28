@@ -17,8 +17,10 @@ from ..core import plugin_settings
 class RDockWidget(QDockWidget):
     runRequested = pyqtSignal(str)
     executionStateChanged = pyqtSignal(bool)
-    restartRequested = pyqtSignal()
+    restartRequested = pyqtSignal(str)
     changeWd = pyqtSignal(str)
+    closing = pyqtSignal()
+
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -82,6 +84,7 @@ class RDockWidget(QDockWidget):
             self.console.append_raw(result["stdout"] + "\n")
 
         self.console.new_line()
+        self.set_console_header(result.get("wd"))
 
     def clean_console(self, prompt):
         self.console.clean(prompt)
@@ -91,6 +94,10 @@ class RDockWidget(QDockWidget):
 
     def console_width(self):
         return self.console.width_cols
+    
+    def closeEvent(self, event):
+        self.closing.emit()
+        super().closeEvent(event)
 
     def _build_header(self):
 
@@ -231,7 +238,7 @@ class RDockWidget(QDockWidget):
         self.clear_button.clicked.connect(lambda: self.console.clean(True))
         self.save_button.clicked.connect(self.editor_tabs.save_current)
         self.open_button.clicked.connect(self.editor_tabs.open_script)
-        self.restart_button.clicked.connect(self.restartRequested.emit)
+        self.restart_button.clicked.connect(lambda: self.restartRequested.emit(self.wd))
         self.wd_button.clicked.connect(self._on_change_wd)
         self.console.runRequested.connect(self._on_console_run)
         self.executionStateChanged.connect(self.set_running_state)
@@ -261,5 +268,5 @@ class RDockWidget(QDockWidget):
         self.runRequested.emit(code)
 
     def _on_console_run(self, code):
-        self.from_console = True
+        self._from_console = True
         self.runRequested.emit(code)

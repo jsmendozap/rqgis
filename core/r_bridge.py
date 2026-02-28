@@ -105,7 +105,6 @@ class RBridge:
     def restart(self):
         self.stop()
         self.process = self._start()
-        self._set_wd()
             
     def _start(self):
         base = os.path.basename(self.r).lower()

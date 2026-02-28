@@ -4,7 +4,7 @@ options(echo = FALSE)
 cat("READY\n")
 flush(.out)
 
-pkgs <- c("jsonlite", "evaluate", "agricolae", "abc", "dfasd", "fasdfasd", "afsfdf")
+pkgs <- c("jsonlite", "evaluate")
 missing <- pkgs[!sapply(pkgs, requireNamespace, quietly = TRUE)]
 
 if (length(missing) > 0) {
