@@ -1,23 +1,49 @@
-from dataclasses import dataclass
-from typing import Optional
 from . import plugin_settings
 from shutil import which
 import subprocess
 import json
 import os
 
-@dataclass
-class RResult:
-    stdout: str = ""
-    error: Optional[str] = None
-    wd: Optional[str] = None
-    is_done: bool = False
-
-    def to_dict(self):
-        return {"stdout": self.stdout, "error": self.error, "wd": self.wd}
-
 class RPathRequiredError(RuntimeError):
     pass
+
+class MissingDependencyError(RuntimeError):
+    pass
+
+
+class RResult(dict):
+    def __init__(self, msg):
+        super().__init__()
+        self.stdout = ""
+        self.error = None
+        self.wd = None
+        self.expression = None
+        self.is_done = False
+        self._parse(msg)
+
+    def _parse(self, msg):
+        match msg["type"]:
+            case "expression":
+                self.expression = msg["data"]
+            case "chunk":
+                self.stdout = msg["data"]
+                self.wd = msg.get("wd")
+                self.update(stdout=self.stdout, error=None, wd=self.wd)
+            case "done":
+                self.error = msg.get("error")
+                self.wd = msg.get("wd")
+                self.is_done = True
+                self.update(stdout="", error=self.error, wd=self.wd)
+            case "error":
+                self.error = msg.get("data")
+                self.is_done = True
+                self.update(stdout="", error=self.error, wd=None)
+            case "missing":
+                raise MissingDependencyError(f"The following R packages are required but are not installed: {msg['data']}")
+
+    def __bool__(self):
+        return not self.is_done
+    
 
 class RBridge:
     def __init__(self):
@@ -43,11 +69,10 @@ class RBridge:
             if not response:
                 raise RuntimeError("R process ended unexpectedly.")
             
-            msg = json.loads(response)
-            if msg["type"] == "chunk":
-                yield RResult(stdout=msg["data"], wd=msg.get("wd"))
-            elif msg["type"] == "done":
-                yield RResult(error=msg.get("error"), wd=msg.get("wd"), is_done=True)
+            result = RResult(json.loads(response))
+            print(result)
+            yield result
+            if result.is_done:
                 break
     
     def run_welcome(self,width=None):
@@ -64,7 +89,8 @@ class RBridge:
                 stdout += result.stdout
             else:
                 wd = result.wd
-        return RResult(stdout=stdout, wd=wd)
+        
+        return RResult({"type": "chunk", "data": stdout, "wd": wd})
 
     def stop(self):
         if self.process.poll() is not None:
@@ -96,7 +122,6 @@ class RBridge:
             args,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
             text=True,
             bufsize=1,
             cwd=self.plugin_dir, 
@@ -104,12 +129,9 @@ class RBridge:
         )
 
         ready = process.stdout.readline().strip()
-
         if ready != "READY":
-            stderr_output = process.stderr.read().strip()
-            detail = f"\nR stderr: {stderr_output}" if stderr_output else ""
             process.kill()
-            raise RuntimeError(f"Failed to start R worker process. {detail}")
+            raise RuntimeError(f"Failed to start R worker process.")
         
         return process     
     

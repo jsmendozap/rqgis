@@ -29,8 +29,8 @@ class RConsole(QTextEdit):
         clear.activated.connect(lambda: self.clean(True))
         self._shortcuts.append(clear)
 
-    def add_to_console(self, line, result, last_command):
-        if line and line != last_command:
+    def add_to_console(self, line, result):
+        if line:
             self.moveCursor(QTextCursor.End)
             cursor = self.textCursor()
             cursor.movePosition(QTextCursor.StartOfBlock, QTextCursor.KeepAnchor)
@@ -40,11 +40,11 @@ class RConsole(QTextEdit):
             else:
                 self.append(self.prompt + line)
 
-        if result["error"] is not None:
-            self.append(result["error"])
+        if result.get("error") is not None:
+            self.append(result.get("error"))
             self._highlighter.mark_error_block(self.document().lastBlock())
 
-        if result["stdout"]:
+        if result.get("stdout"):
             self.append(f"<pre style='margin:0;'>{html.escape(result['stdout'])}</pre>")
 
     def append_raw(self, text):

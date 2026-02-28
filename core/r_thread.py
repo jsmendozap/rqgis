@@ -1,5 +1,6 @@
 from qgis.PyQt.QtCore import QObject, QThread, pyqtSignal, pyqtSlot, QMetaObject, Qt
-from .r_bridge import RBridge, RPathRequiredError
+from .r_bridge import RBridge, RPathRequiredError, MissingDependencyError
+
 
 class RWorker(QObject):
     initialized = pyqtSignal()        
@@ -22,6 +23,8 @@ class RWorker(QObject):
             self.initialized.emit()
         except RPathRequiredError:
             self.path_required.emit()
+        except MissingDependencyError as e:
+            self.failed.emit(f"{e}")
         except Exception as e:
             if self.bridge is not None:
                 self.bridge.stop()
@@ -37,15 +40,14 @@ class RWorker(QObject):
 
         self.busy_changed.emit(True)
         try:
-            for expression in self._split_into_expressions(code):
-                first = True
-                for result in self.bridge.run_code(expression, width=width):
-                    expr = expression if first else ""
-                    if not result.is_done:
-                        self.line_result.emit(expr,result.to_dict())
-                        first = False
-                    else:
-                        self.line_result.emit(expr, result.to_dict())
+            for result in self.bridge.run_code(code, width=width):
+                print(result)
+                if result.expression:
+                    self.line_result.emit(result.expression, result)
+                elif result:
+                    self.line_result.emit("", result)
+                else:
+                    self.line_result.emit("", result)
         except Exception as e:
             self.failed.emit(f"Execution error: {e}")
         finally:
@@ -58,7 +60,7 @@ class RWorker(QObject):
             return
         try:
             result = self.bridge.run_welcome(width=width)
-            self.welcome_result.emit(result.to_dict())
+            self.welcome_result.emit(result)
         except Exception as e:
             self.failed.emit(f"Welcome message error: {e}")
 
@@ -90,43 +92,6 @@ class RWorker(QObject):
                     pass
             except Exception as e:
                 self.failed.emit(f"Failed to change working directory: {e}")
-
-    def _split_into_expressions(self, code):
-        expressions = []
-        buffer = []
-        opens = 0
-        
-        for line in code.splitlines():
-            if line.strip().startswith("#"):
-                continue
-            
-            command = self._strip_inline_comment(line)
-            buffer.append(line)
-            opens += command.count('(') + command.count('[') + command.count('{')
-            opens -= command.count(')') + command.count(']') + command.count('}')
-            
-            is_pipe = command.rstrip().endswith(('|>', '%>%', '%T>%', '+'))
-            if opens <= 0 and not is_pipe:
-                expressions.append('\n'.join(buffer))
-                buffer = []
-                opens = 0
-        
-        if buffer:
-            expressions.append('\n'.join(buffer))
-        
-        return expressions
-    
-    def _strip_inline_comment(self, line):
-        in_string = None
-        for i, ch in enumerate(line):
-            if ch in ('"', "'"):
-                if in_string is None:
-                    in_string = ch
-                elif ch == in_string:
-                    in_string = None
-            elif ch == '#' and in_string is None:
-                return line[:i]
-        return line
 
 
 class RRunner(QObject):

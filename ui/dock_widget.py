@@ -24,7 +24,7 @@ class RDockWidget(QDockWidget):
         super().__init__(parent)
         self.settings = RDockSettings()
         self.wd = plugin_settings.get_initial_wd()
-        self._last_command = None
+        self._from_console = False
         self._shortcuts = []
         self._build_header()
         self._build_editor_area()
@@ -63,12 +63,14 @@ class RDockWidget(QDockWidget):
 
     def append_result(self, line, result):
 
-        self.console.add_to_console(line, result, self._last_command)
-        if result["wd"] and result["wd"] != self.wd:
-            self.wd = result["wd"]
+        line = "" if self._from_console else line
+        self.console.add_to_console(line, result)
+
+        if result.get("wd") and result.get("wd") != self.wd:
+            self.wd = result.get("wd")
             self.set_console_header(self.wd, emit = False)
 
-        self._last_command = None
+        self._from_console = False
 
     def append_welcome(self, result):
         self.console.moveCursor(QTextCursor.End)
@@ -259,5 +261,5 @@ class RDockWidget(QDockWidget):
         self.runRequested.emit(code)
 
     def _on_console_run(self, code):
-        self._last_command = code
+        self.from_console = True
         self.runRequested.emit(code)
