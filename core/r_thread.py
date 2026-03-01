@@ -1,5 +1,6 @@
 from qgis.PyQt.QtCore import QObject, QThread, pyqtSignal, pyqtSlot, QMetaObject, Qt
-from .r_bridge import RBridge, RPathRequiredError, MissingDependencyError
+from .utils import MissingDependencyError, RPathRequiredError
+from .r_bridge import RBridge 
 
 
 class RWorker(QObject):
@@ -11,14 +12,15 @@ class RWorker(QObject):
     busy_changed = pyqtSignal(bool)
     path_required = pyqtSignal()
 
-    def __init__(self):
+    def __init__(self, qgis_api):
         super().__init__()
         self.bridge = None
+        self.qgis_api = qgis_api
 
     @pyqtSlot()
     def initialize(self):
         try:
-            self.bridge = RBridge()
+            self.bridge = RBridge(self.qgis_api)
             self.bridge.initialize()
             self.initialized.emit()
         except RPathRequiredError:
@@ -107,10 +109,10 @@ class RRunner(QObject):
     request_restart = pyqtSignal()
     request_change_wd = pyqtSignal(str)
 
-    def __init__(self):
+    def __init__(self, qgis_api):
         super().__init__()
         self._thread = QThread()
-        self._worker = RWorker()
+        self._worker = RWorker(qgis_api)
         self._worker.moveToThread(self._thread)
 
         self.request_initialize.connect(self._worker.initialize)

@@ -1,5 +1,6 @@
 from qgis.PyQt.QtWidgets import QAction, QInputDialog
 from qgis.core import Qgis
+from qgis.PyQt import sip
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtCore import Qt
 from enum import Enum, auto
@@ -7,6 +8,7 @@ import os
 
 from .ui.dock_widget import RDockWidget
 from .core.r_thread import RRunner
+from .core.qgis_api import QGISApi
 from .core import plugin_settings
 from .core import utils
 
@@ -62,7 +64,8 @@ class Console:
         self.dock.raise_()
 
     def _start_runner(self):
-        self.runner = RRunner()
+        self.qgis_api = QGISApi()
+        self.runner = RRunner(self.qgis_api)
         self.runner.initialized.connect(self._on_runner_initialized)
         self.runner.path_required.connect(self._on_path_required)
         self.runner.line_result.connect(self.dock.append_result)
@@ -78,7 +81,8 @@ class Console:
 
         self._state = RSessionState.UNINITIALIZED
         self._pending_code = None
-        self.dock.clean_console(prompt=False)
+        if self.dock is not None and not sip.isdeleted(self.dock):
+            self.dock.clean_console(prompt=False)
 
     def _ensure_runner(self, popup):
         self._allow_path_popup = popup

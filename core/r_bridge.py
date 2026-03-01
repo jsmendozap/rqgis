@@ -1,54 +1,17 @@
+from qgis.PyQt.QtCore import QMetaObject, Qt, Q_ARG
+from .r_result import RResult
+from .utils import RPathRequiredError
 from . import plugin_settings
 from shutil import which
 import subprocess
 import json
 import os
 
-class RPathRequiredError(RuntimeError):
-    pass
-
-class MissingDependencyError(RuntimeError):
-    pass
-
-
-class RResult(dict):
-    def __init__(self, msg):
-        super().__init__()
-        self.stdout = ""
-        self.error = None
-        self.wd = None
-        self.expression = None
-        self.is_done = False
-        self._parse(msg)
-
-    def _parse(self, msg):
-        match msg["type"]:
-            case "expression":
-                self.expression = msg["data"]
-            case "chunk":
-                self.stdout = msg["data"]
-                self.wd = msg.get("wd")
-                self.update(stdout=self.stdout, error=None, wd=self.wd)
-            case "done":
-                self.error = msg.get("error")
-                self.wd = msg.get("wd")
-                self.is_done = True
-                self.update(stdout="", error=self.error, wd=self.wd)
-            case "error":
-                self.error = msg.get("data")
-                self.is_done = True
-                self.update(stdout="", error=self.error, wd=None)
-            case "missing":
-                raise MissingDependencyError(f"The following R packages are required but are not installed: {msg['data']}")
-
-    def __bool__(self):
-        return not self.is_done
-    
-
 class RBridge:
-    def __init__(self):
+    def __init__(self, qgis_api):
         self.plugin_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.process = None
+        self.qgis_api = qgis_api
         self.r = self._find_rscript()
 
     def initialize(self):
@@ -66,11 +29,26 @@ class RBridge:
 
         while True:
             response = self.process.stdout.readline().strip()
+            print(response)
             if not response:
                 raise RuntimeError("R process ended unexpectedly.")
             
             result = RResult(json.loads(response))
-            print(result)
+
+            if result.is_request:
+                QMetaObject.invokeMethod(
+                    self.qgis_api,
+                    "dispatch",
+                    Qt.BlockingQueuedConnection,
+                    Q_ARG('PyQt_PyObject', {"method": result.method, "args": result.args})
+                )
+                
+                qgis_response = self.qgis_api.result
+
+                self.process.stdin.write(json.dumps(qgis_response) + "\n")
+                self.process.stdin.flush()
+                continue 
+
             yield result
             if result.is_done:
                 break
@@ -78,7 +56,7 @@ class RBridge:
     def run_welcome(self,width=None):
         code = "\n".join([
         'cat(R.version.string, "\\n")',
-        'cat("Running under", format(utils::osVersion), "\\n")',
+        'cat("Running on", format(utils::osVersion), "\\n")',
         ])
 
         stdout = ""
@@ -108,12 +86,13 @@ class RBridge:
             
     def _start(self):
         base = os.path.basename(self.r).lower()
+        worker = os.path.join(self.plugin_dir, "main.R")
         args = [self.r, "--vanilla"]
         
         if "rscript" not in base:
-            args.extend(["--slave", "-f", "r_worker.R"])
+            args.extend(["--slave", "-f", f"{worker}"])
         else:
-            args.append("r_worker.R")
+            args.append(f"{worker}")
 
         creationflags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0
 

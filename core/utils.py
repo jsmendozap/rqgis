@@ -16,3 +16,9 @@ def is_valid_rscript(path):
             return 'R version' in output
         except Exception:
             return False
+
+class RPathRequiredError(RuntimeError):
+    pass    
+
+class MissingDependencyError(RuntimeError):
+    pass

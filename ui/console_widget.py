@@ -41,8 +41,7 @@ class RConsole(QTextEdit):
                 self.append(self.prompt + line)
 
         if result.get("error") is not None:
-            self.append(result.get("error"))
-            self._highlighter.mark_error_block(self.document().lastBlock())
+            self.append(f"<span style='color:red; font-weight:400'>Error: </span><span style='font-weight:400'>{html.escape(result['error'])}</span>")
 
         if result.get("stdout"):
             self.append(f"<pre style='margin:0;'>{html.escape(result['stdout'])}</pre>")
@@ -52,7 +51,6 @@ class RConsole(QTextEdit):
             self.append(f"<pre style='margin:0;'>{html.escape(text)}</pre>")
 
     def clean(self, prompt):
-        self._highlighter.clear_errors()
         self.clear()
         if prompt:
             self.insertPlainText(self.prompt)
