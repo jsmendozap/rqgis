@@ -17,6 +17,7 @@ class RBridge:
     def initialize(self):
         self.process = self._start()
         self._set_wd()
+        self._init_qgis_project()
         
     def run_code(self, code, width=None):
         data = {"code": code}
@@ -113,6 +114,17 @@ class RBridge:
         
         return process     
     
+    def _init_qgis_project(self):
+        QMetaObject.invokeMethod(
+            self.qgis_api, "project_state",
+            Qt.BlockingQueuedConnection
+        )
+        state = self.qgis_api.result
+        msg = {"type": "init", "data": state}
+        self.process.stdin.write(json.dumps(msg) + "\n")
+        self.process.stdin.flush()
+        self.process.stdout.readline().strip()
+
     def _find_rscript(self):
         saved = plugin_settings.get_r_path()
         if saved:
@@ -129,3 +141,5 @@ class RBridge:
         wd = wd.replace('\\', '/').replace('"', '\\"')
         for _ in self.run_code(f'setwd("{wd}")'): 
             pass
+
+    

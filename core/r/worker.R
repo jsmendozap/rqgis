@@ -1,6 +1,7 @@
 .worker_env <- local({
 
     options(echo = FALSE)
+    .out <- stdout()
 
     cat("READY\n")
     flush(.out)
@@ -72,14 +73,24 @@
     }
 
     run <- function(){
+        QgisProject <- source("core/r/qgis.R", local = TRUE)$value
+
         while (TRUE) {
             line <- readLines(con = "stdin", n = 1, warn = FALSE)
             if (length(line) == 0) break
 
-            request <- fromJSON(line)
+            tryCatch({
+                request <- fromJSON(line)
 
             if (!is.null(request$width)) {
                 options(width = request$width)
+            }
+
+            if (!is.null(request$type) && request$type == "init") {
+                qgis <- QgisProject$new(request$data)
+                assign("qgis", qgis, envir = globalenv())
+                send_done()
+                next
             }
 
             exprs <- tryCatch(
@@ -118,6 +129,9 @@
             }
 
             send_done(error_msg)
+            }, error = function(e) {
+                send_done(error = conditionMessage(e))
+            })
         }
     }
     environment()

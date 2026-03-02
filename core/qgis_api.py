@@ -1,5 +1,5 @@
 from qgis.PyQt.QtCore import QObject, pyqtSlot
-from qgis.core import QgsProject, QgsVectorFileWriter
+from qgis.core import QgsProject, QgsVectorFileWriter, QgsUnitTypes
 import tempfile
 import os
 
@@ -15,9 +15,24 @@ class QGISApi(QObject):
                 self.result = self.list_layers(msg.get("args", {}))
             case "get_layer":
                 self.result = self.get_layer(msg.get("args", {}))
+            case "project_state":
+                self.result = self.project_state()
             case _:
                 self.result = {"type": "response", "error": f"Unknown method: {method}"}
         
+        return self.result
+    
+    @pyqtSlot(result='PyQt_PyObject')
+    def project_state(self):
+        project = QgsProject.instance()
+        self.result = {
+            "type": "response",
+            "title": project.title(),
+            "path": project.homePath(),
+            "crs": project.crs().authid(),
+            "units": QgsUnitTypes.toString(project.crs().mapUnits()),
+            "layers": [layer.name() for layer in project.mapLayers().values()]
+        }
         return self.result
 
     def list_layers(self, args):
