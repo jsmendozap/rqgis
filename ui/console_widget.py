@@ -39,6 +39,8 @@ class RConsole(QTextEdit):
                 cursor.insertText(self.prompt + line)
             else:
                 self.append(self.prompt + line)
+            self.history_list.append(line)
+            self.history_index = len(self.history_list)
 
         if result.get("error") is not None:
             self.append(f"<span style='color:red; font-weight:400'>Error: </span><span style='font-weight:400'>{html.escape(result['error'])}</span>")
@@ -141,8 +143,6 @@ class RConsole(QTextEdit):
             self.history_index = len(self.history_list)
             self.moveCursor(QTextCursor.End)
             self.runRequested.emit(cmd)
-        else:
-            self.append("")
 
     def _replace_current_input(self, text):
         cursor = self.textCursor()

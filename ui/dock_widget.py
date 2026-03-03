@@ -8,7 +8,7 @@ from qgis.PyQt.QtWidgets import (
 import os
 from qgis.PyQt.QtGui import QTextCursor
 
-from .editor import EditorTabsWidget
+from .editor import EditorTabsWidget, EditorTab
 from .console_widget import RConsole
 from .settings_widget import RDockSettings
 from ..core import plugin_settings
@@ -262,11 +262,49 @@ class RDockWidget(QDockWidget):
         self.console.register_shortcuts()
         
     def _emit_run(self):
-        code = self.editor_tabs.current_code().strip()
-        if not code:
+        editor = self.editor_tabs.currentWidget()
+        if not isinstance(editor, EditorTab):
+            return
+        
+        if editor.hasSelectedText():
+            code = editor.selectedText()
+        else:
+            code = self._expression_at_cursor(editor)
+
+        if not code.strip():
             return
         self.runRequested.emit(code)
 
     def _on_console_run(self, code):
         self._from_console = True
         self.runRequested.emit(code)
+
+    def _expression_at_cursor(self, editor):
+        line, _ = editor.getCursorPosition()
+        full_code = editor.text()
+        lines = full_code.splitlines()
+        
+        current = []
+        opens = 0
+        start_line = 0
+        
+        for i, l in enumerate(lines):
+            stripped = l.strip()
+            if not stripped or stripped.startswith("#"):
+                if not current:
+                    start_line = i + 1
+                continue
+            
+            current.append(l)
+            opens += l.count('(') + l.count('[') + l.count('{')
+            opens -= l.count(')') + l.count(']') + l.count('}')
+            is_pipe = l.rstrip().endswith(('|>', '%>%', '+'))
+            
+            if opens <= 0 and not is_pipe:
+                if start_line <= line <= i:
+                    return '\n'.join(current)
+                current = []
+                opens = 0
+                start_line = i + 1
+        
+        return '\n'.join(current) if current else ""

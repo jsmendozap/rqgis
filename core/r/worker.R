@@ -1,6 +1,6 @@
 .worker_env <- local({
 
-    options(echo = FALSE)
+    options(echo = FALSE, max.print = 100)
     .out <- stdout()
 
     cat("READY\n")
@@ -15,7 +15,7 @@
         flush(.out)
         quit(status = 1)
     } else {
-        invisible(lapply(pkgs, library, character.only = TRUE))
+        invisible(lapply(pkgs[1:3], library, character.only = TRUE))
     }
 
     send_chunk <- function(data) {
@@ -73,8 +73,8 @@
     }
 
     run <- function(){
-        QgisProject <- source("core/r/qgis.R", local = TRUE)$value
-
+        QgisProject <- source(file.path("core", "r", "qgis.R"), local = TRUE)$value
+        
         while (TRUE) {
             line <- readLines(con = "stdin", n = 1, warn = FALSE)
             if (length(line) == 0) break

@@ -96,10 +96,10 @@ class RBridge:
         args = [self.r, "--vanilla"]
         
         if "rscript" not in base:
-            args.extend(["--slave", "-f", f"{worker}"])
+            args.extend(["--slave", "-f", f"{worker}", "--args", f"{self.plugin_dir}"])
         else:
-            args.append(f"{worker}")
-
+            args.extend([f"{worker}", f"{self.plugin_dir}"])
+        
         creationflags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0
 
         process = subprocess.Popen(

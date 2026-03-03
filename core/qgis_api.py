@@ -1,5 +1,6 @@
 from qgis.PyQt.QtCore import QObject, pyqtSlot
-from qgis.core import QgsProject, QgsVectorFileWriter, QgsUnitTypes
+from qgis.core import QgsProject, QgsUnitTypes, QgsMapLayer, QgsRasterLayer, QgsVectorLayer
+import processing
 import tempfile
 import os
 
@@ -8,6 +9,7 @@ class QGISApi(QObject):
         super().__init__()
         self.result = None
         self.needs_update = False
+        self._temp_files = []
 
     @pyqtSlot('PyQt_PyObject', result='PyQt_PyObject')
     def dispatch(self, msg):
@@ -17,6 +19,8 @@ class QGISApi(QObject):
                 self.result = self.list_layers(msg.get("args", {}))
             case "get_layer":
                 self.result = self.get_layer(msg.get("args", {}))
+            case "insert_layer":
+                self.result = self.insert_layer(msg.get("args", {}))
             case "project_state":
                 self.result = self.project_state()
             case _:
@@ -32,13 +36,11 @@ class QGISApi(QObject):
             "title": project.title(),
             "path": project.homePath(),
             "crs": project.crs().authid(),
-            "units": QgsUnitTypes.toString(project.crs().mapUnits()),
-            "layers": [layer.name() for layer in project.mapLayers().values()]
+            "units": QgsUnitTypes.toString(project.crs().mapUnits())
         }
         return self.result
 
     def list_layers(self, args):
-        print(args)
         type = args.get("type")
         
         if type is not None:
@@ -53,16 +55,60 @@ class QGISApi(QObject):
         }
 
     def get_layer(self, args):
-        pass
-        """
-        name = args.get("name")
-        layers = QgsProject.instance().mapLayersByName(name)
-        if not layers:
-            return {"type": "response", "error": f"Layer not found: {name}"}
-        path = os.path.join(tempfile.gettempdir(), f"{name}.fgb")
-        QgsVectorFileWriter.writeAsVectorFormat(layers[0], path)
+        column = args.get("col")
+        field = args.get("value")
+        
+        if column == "name":
+            layer = QgsProject.instance().mapLayersByName(field)
+        elif column == "id":
+            layer = QgsProject.instance().mapLayer(field)
+        else: 
+            result = {"type": "error", "error": f"Unknown layer: {column}"}
+            return result
+        
+        if not layer:
+            return {"type": "error", "error": f"Layer not found: {field}"}
+
+        type = layer[0].type()
+        if type == QgsMapLayer.VectorLayer:
+            fd, path = tempfile.mkstemp(suffix=".fgb")
+            os.close(fd)
+            processing.run("native:savefeatures", {'INPUT': layer[0], 'OUTPUT': path})
+        elif type == QgsMapLayer.RasterLayer:
+            print("entró")
+            fd, path = tempfile.mkstemp(suffix=".tif")
+            os.close(fd)
+            processing.run("gdal:translate", {'INPUT': layer[0], 'OUTPUT': path, 'OPTIONS': ''})
+        else:
+            return {"type": "error", "error": f"Unsupported layer type: {type}"}
+
         return {"type": "response", "path": path}
-        """
+    
+    def insert_layer(self, args):
+        path = args.get("path")
+        if not os.path.exists(path):
+            return {"type": "error", "error": f"Layer not found: {path}"}
+        
+        name = args.get("name")
+        if not name:
+            name = os.path.splitext(os.path.basename(path))[0]
+
+        existing = QgsProject.instance().mapLayersByName(name)
+        if existing:
+            name = f"{name}_{len(existing)}"
+
+        ext = os.path.splitext(path)[1].lower()
+        if ext == ".tif":
+            layer = QgsRasterLayer(path, name)
+        else:
+            layer = QgsVectorLayer(path, name, "ogr")
+
+        if not layer.isValid():
+            return {"type": "error", "error": f"Invalid layer: {path}"}
+        
+        QgsProject.instance().addMapLayer(layer)
+        self._temp_files.append(path)
+        return {"type": "response", "id": layer.id()}
     
     def update_state(self):
         self.needs_update = True
@@ -74,3 +120,10 @@ class QGISApi(QObject):
             return None
         self._needs_update = False
         return self.project_state()
+    
+    def remove_temp_files(self):
+        for path in self._temp_files:
+            print(path)
+            if os.path.exists(path):
+                os.remove(path)
+        self._temp_files = []

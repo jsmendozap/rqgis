@@ -71,6 +71,9 @@ class Console:
         if self.runner is not None:
             self.runner.stop()
             self.runner = None
+        
+        if self.qgis_api is not None:
+            self.qgis_api.remove_temp_files()
 
         self._state = RSessionState.UNINITIALIZED
         self._pending_code = None
@@ -163,8 +166,6 @@ class Console:
             project.titleChanged,
             project.crsChanged,
             project.readProject,
-            project.layersAdded,
-            project.layersRemoved,
         ]
         for signal in signals:
             signal.connect(lambda *args: self.qgis_api.update_state())
