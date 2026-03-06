@@ -8,11 +8,12 @@ import json
 import os
 
 class RBridge:
-    def __init__(self, qgis_api):
+    def __init__(self, qgis_api, on_pkg_loaded):
         self.plugin_dir = root_dir()
         self.process = None
         self.qgis_api = qgis_api
         self.r = self._find_rscript()
+        self.pkg_loaded = on_pkg_loaded
 
     def initialize(self):
         self.process = self._start()
@@ -54,6 +55,9 @@ class RBridge:
                 self.process.stdin.write(json.dumps(qgis_response) + "\n")
                 self.process.stdin.flush()
                 continue 
+
+            if result.is_pkg:
+                self.pkg_loaded(result.signatures)
 
             yield result
             if result.is_done:

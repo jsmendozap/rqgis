@@ -48,7 +48,12 @@ class EditorTab(QgsCodeEditorR):
         return f"*{base}" if self.is_dirty else base
 
     def is_empty(self):
-        return self.text().strip() == ""
+        return self.text().strip() == ""        
+    
+    def add_signatures(self, signatures):
+        for sig in signatures:
+            self.api.add(sig)
+        self.api.prepare()
 
     def _setup_autocomplete(self):
         self.setAutoCompletionSource(QsciScintilla.AcsAPIs)
@@ -61,7 +66,7 @@ class EditorTab(QgsCodeEditorR):
 
         self.api = QsciAPIs(self.lexer())
 
-        api_path = os.path.join(root_dir(), "resources", "r_functions.api")
+        api_path = os.path.join(root_dir(), "resources", "fns_signatures.api")
         if os.path.exists(api_path):
             self.api.load(api_path)
 
@@ -156,6 +161,7 @@ class EditorTabsWidget(QTabWidget):
         self._handling_plus_click = False
         self._shortcuts = []
         self.setTabsClosable(True)
+        self._accumulated_signatures = []
         self.new_tab()
         self._add_plus_tab()
 
@@ -171,6 +177,7 @@ class EditorTabsWidget(QTabWidget):
     def new_tab(self):
         tab = EditorTab()
         tab.dirtyChanged.connect(lambda _dirty, editor=tab: self._update_tab_dirty_style(self.indexOf(editor)))
+        tab.add_signatures(self._accumulated_signatures)
 
         position = self.count()
         if position > 0 and self.tabText(position - 1) == "+":
@@ -215,6 +222,13 @@ class EditorTabsWidget(QTabWidget):
         if not isinstance(editor, EditorTab):
             return ""
         return editor.text()
+    
+    def update_signatures(self, signatures):
+        self._accumulated_signatures.extend(signatures)
+        for i in range(self.count()):
+            editor = self.widget(i)
+            if isinstance(editor, EditorTab):
+                editor.add_signatures(signatures)
 
     def _close_tab(self, index):
         if index is None:

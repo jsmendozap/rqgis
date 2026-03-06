@@ -11,6 +11,7 @@ class RWorker(QObject):
     failed = pyqtSignal(str)
     busy_changed = pyqtSignal(bool)
     path_required = pyqtSignal()
+    pkg_loaded = pyqtSignal(list)
 
     def __init__(self, qgis_api):
         super().__init__()
@@ -20,7 +21,7 @@ class RWorker(QObject):
     @pyqtSlot()
     def initialize(self):
         try:
-            self.bridge = RBridge(self.qgis_api)
+            self.bridge = RBridge(self.qgis_api, self._on_pkg_loaded)
             self.bridge.initialize()
             self.initialized.emit()
         except RPathRequiredError:
@@ -94,6 +95,9 @@ class RWorker(QObject):
             except Exception as e:
                 self.failed.emit(f"Failed to change working directory: {e}")
 
+    def _on_pkg_loaded(self, signatures):
+        self.pkg_loaded.emit(signatures)
+
 
 class RRunner(QObject):
     initialized = pyqtSignal()
@@ -108,27 +112,15 @@ class RRunner(QObject):
     request_welcome = pyqtSignal(int)
     request_restart = pyqtSignal()
     request_change_wd = pyqtSignal(str)
+    pkg_loaded = pyqtSignal(list)
 
     def __init__(self, qgis_api):
         super().__init__()
         self._thread = QThread()
         self._worker = RWorker(qgis_api)
         self._worker.moveToThread(self._thread)
-
-        self.request_initialize.connect(self._worker.initialize)
-        self.request_run.connect(self._worker.run_code_block)
-        self.request_welcome.connect(self._worker.run_welcome)
-        self.request_restart.connect(self._worker.restart_r)
-        self.request_change_wd.connect(self._worker.change_wd)
-        
-        self._worker.initialized.connect(self.initialized)
-        self._worker.path_required.connect(self.path_required)
-        self._worker.line_result.connect(self.line_result)
-        self._worker.welcome_result.connect(self.welcome_result)
-        self._worker.run_finished.connect(self.run_finished)
-        self._worker.failed.connect(self.failed)
-        self._worker.busy_changed.connect(self.busy_changed)
-
+        self._connect_request_signals()
+        self._connect_woker_signals()
         self._thread.start()
 
     def initialize(self):
@@ -154,3 +146,21 @@ class RRunner(QObject):
 
     def change_wd(self, path):
         self.request_change_wd.emit(path)
+
+    def _connect_woker_signals(self):
+        self._worker.initialized.connect(self.initialized)
+        self._worker.path_required.connect(self.path_required)
+        self._worker.line_result.connect(self.line_result)
+        self._worker.welcome_result.connect(self.welcome_result)
+        self._worker.run_finished.connect(self.run_finished)
+        self._worker.failed.connect(self.failed)
+        self._worker.busy_changed.connect(self.busy_changed)
+        self._worker.pkg_loaded.connect(self.pkg_loaded)
+
+    def _connect_request_signals(self):
+        self.request_initialize.connect(self._worker.initialize)
+        self.request_run.connect(self._worker.run_code_block)
+        self.request_welcome.connect(self._worker.run_welcome)
+        self.request_restart.connect(self._worker.restart_r)
+        self.request_change_wd.connect(self._worker.change_wd)
+        

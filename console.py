@@ -210,6 +210,7 @@ class Console:
         self.runner.run_finished.connect(self._on_runner_finished)
         self.runner.failed.connect(self._on_runner_failed)
         self.runner.busy_changed.connect(self.dock.executionStateChanged.emit)
+        self.runner.pkg_loaded.connect(self.dock.on_pkg_loaded)
 
     def _disconnect_project_updates(self):
         if not self._project_signals_connected:

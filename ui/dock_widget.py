@@ -95,6 +95,9 @@ class RDockWidget(QDockWidget):
     def console_width(self):
         return self.console.width_cols
     
+    def on_pkg_loaded(self, signatures):
+        self.editor_tabs.update_signatures(signatures)
+
     def closeEvent(self, event):
         self.closing.emit()
         super().closeEvent(event)
@@ -233,7 +236,7 @@ class RDockWidget(QDockWidget):
         layout.addWidget(splitter)
 
     def _connect_signals(self):
-        self.run_button.clicked.connect(self._emit_run)
+        self.run_button.clicked.connect(lambda: self._emit_run(True))
         self.settings_button.clicked.connect(self.settings.show)
         self.clear_button.clicked.connect(lambda: self.console.clean(True))
         self.save_button.clicked.connect(self.editor_tabs.save_current)
@@ -261,13 +264,15 @@ class RDockWidget(QDockWidget):
         self.editor_tabs.register_shortcuts()
         self.console.register_shortcuts()
         
-    def _emit_run(self):
+    def _emit_run(self, run_all=False):
         editor = self.editor_tabs.currentWidget()
         if not isinstance(editor, EditorTab):
             return
         
         if editor.hasSelectedText():
             code = editor.selectedText()
+        elif run_all:
+            code = editor.text()
         else:
             code = self._expression_at_cursor(editor)
 

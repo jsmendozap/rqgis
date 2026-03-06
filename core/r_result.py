@@ -1,6 +1,7 @@
 from .utils import MissingDependencyError
 
 class RResult(dict):
+
     def __init__(self, msg):
         super().__init__()
         self.stdout = ""
@@ -9,8 +10,10 @@ class RResult(dict):
         self.expression = None
         self.is_done = False
         self.is_request = False
+        self.is_pkg = False
         self.method = None
         self.args = None
+        self.signatures = None
         self._parse(msg)
 
     def _parse(self, msg):
@@ -35,6 +38,9 @@ class RResult(dict):
                 self.args = msg.get("args")
                 self.is_request = True
                 self.is_done = False
+            case "pkg":
+                self.signatures = msg['data']
+                self.is_pkg = True
             case "missing":
                 raise MissingDependencyError(f"The following R packages are required but are not installed: {msg['data']}")
 
