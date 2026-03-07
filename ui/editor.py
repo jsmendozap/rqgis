@@ -21,8 +21,6 @@ class EditorTab(QgsCodeEditorR):
         self.setFrameShape(QFrame.NoFrame)
         self.textChanged.connect(self.mark_dirty)
         self._methods, self._calltips = self._load_calltips()
-        self._setup_autocomplete()
-        self._force_colors_lexer()
 
     def keyPressEvent(self, event):
         if event.key() in (Qt.Key_Return, Qt.Key_Enter):
@@ -51,16 +49,17 @@ class EditorTab(QgsCodeEditorR):
         return self.text().strip() == ""        
     
     def add_signatures(self, signatures):
+        if not signatures or not hasattr(self, 'api'):
+            return
         for sig in signatures:
             self.api.add(sig)
         self.api.prepare()
 
-    def _setup_autocomplete(self):
+    def _setup_autocomplete(self, accumulated=None):
+        self._force_colors_lexer()
         self.setAutoCompletionSource(QsciScintilla.AcsAPIs)
         self.setAutoCompletionThreshold(2)
         self.setAutoCompletionUseSingle(QsciScintilla.AcusNever)
-
-        self.setCallTipsStyle(QsciScintilla.CallTipsNoContext)
         self.setCallTipsPosition(QsciScintilla.CallTipsAboveText)
         self.setCallTipsVisible(1)
 
@@ -69,6 +68,10 @@ class EditorTab(QgsCodeEditorR):
         api_path = os.path.join(root_dir(), "resources", "fns_signatures.api")
         if os.path.exists(api_path):
             self.api.load(api_path)
+
+        if accumulated:
+            for sig in accumulated:
+                self.api.add(sig)
 
         self.api.prepare()
 
@@ -177,7 +180,7 @@ class EditorTabsWidget(QTabWidget):
     def new_tab(self):
         tab = EditorTab()
         tab.dirtyChanged.connect(lambda _dirty, editor=tab: self._update_tab_dirty_style(self.indexOf(editor)))
-        tab.add_signatures(self._accumulated_signatures)
+        tab._setup_autocomplete(accumulated=self._accumulated_signatures)
 
         position = self.count()
         if position > 0 and self.tabText(position - 1) == "+":

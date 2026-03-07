@@ -1,4 +1,4 @@
- send_chunk <- function(data) {
+send_chunk <- function(data) {
     msg <- toJSON(list(type = "chunk", data = data), auto_unbox = TRUE)
     cat(msg, "\n", file = .out, sep = "")
     flush(.out)

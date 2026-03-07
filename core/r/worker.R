@@ -6,7 +6,6 @@
     .fns <- NULL
 
     run <- function(){
-        QgisProject <- source(file.path("core", "r", "qgis.R"), local = TRUE)$value
 
         while (TRUE) {
             line <- readLines(con = "stdin", n = 1, warn = FALSE)
@@ -19,10 +18,12 @@
                 options(width = request$width)
             }
 
-            if (!is.null(request$type) && request$type %in% c("init", "update")) {
-                qgis <- QgisProject$new(request$data)
-                assign("qgis", qgis, envir = globalenv())
-                send_done()
+            if (!is.null(request$type) && request$type == "update") {
+                vars <- ls(globalenv())
+                existing <- vars[sapply(vars, \(x) inherits(get(x, envir = globalenv()), "QgisProject"))]
+                if (length(existing) > 0) {
+                    assign(existing[1], qgis_project(request$data), envir = globalenv())
+                }
                 next
             }
 

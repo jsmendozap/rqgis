@@ -1,5 +1,4 @@
 .plugin_dir <- commandArgs(trailingOnly = TRUE)
-source(file.path(.plugin_dir, "core", "r", "worker.R"), local = TRUE)
 
 options(echo = FALSE, max.print = 100)
 .out <- stdout()
@@ -20,5 +19,13 @@ local({
         invisible(lapply(pkgs[1:3], library, character.only = TRUE))
     }
 })
+
+.qgis <- new.env()
+.qgis$qgis_project <- function(data = NULL){
+    source(file.path(.plugin_dir, "core", "r", "qgis.R"), local = TRUE)
+    return(QgisProject$new(data))
+}
+attach(.qgis, pos = 2L, name = "qgis:utils", warn.conflicts = FALSE)
+source(file.path(.plugin_dir, "core", "r", "worker.R"), local = TRUE)
 
 .worker_env$run()

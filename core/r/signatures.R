@@ -35,7 +35,11 @@ get_signatures <- function(pkg) {
             arg_strs <- c(arg_strs,
                 if (!nzchar(raw)) nm else sprintf("%s = %s", nm, raw))
         }
-        paste0(fname, "(", paste(arg_strs, collapse = ", "), ")")
+        if (length(arg_strs) > 3) {
+            paste0(fname, "(\n  ", paste(arg_strs, collapse = ",\n  "), "\n)")
+        } else {
+            paste0(fname, "(", paste(arg_strs, collapse = ", "), ")")
+        }
     }
 
     exports <- tryCatch(getNamespaceExports(pkg), error = function(e) character(0L))

@@ -119,7 +119,6 @@ class RConsole(QTextEdit):
                 self.setTextCursor(cursor)
 
     def insertFromMimeData(self, source):
-        """Block paste if it would modify protected area. Strip newlines."""
         if source.hasText():
             cursor = self.textCursor()
             prompt_end = self.document().lastBlock().position() + len(self.prompt)

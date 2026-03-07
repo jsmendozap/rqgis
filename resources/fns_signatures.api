@@ -1193,7 +1193,7 @@ qexp(p, rate = 1, lower.tail = TRUE, log.p = FALSE)
 qf(p, df1, df2, ncp, lower.tail = TRUE, log.p = FALSE)
 qgamma(p, shape, rate = 1, scale = 1/rate, lower.tail = TRUE, log.p = FALSE)
 qgeom(p, prob, lower.tail = TRUE, log.p = FALSE)
-gis
+qgis_project()
 qhyper(p, m, n, k, lower.tail = TRUE, log.p = FALSE)
 qlnorm(p, meanlog = 0, sdlog = 1, lower.tail = TRUE, log.p = FALSE)
 qlogis(p, location = 0, scale = 1, lower.tail = TRUE, log.p = FALSE)

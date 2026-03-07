@@ -18,7 +18,6 @@ class RBridge:
     def initialize(self):
         self.process = self._start()
         self._set_wd()
-        self._send_project_update(type="init")
         
     def run_code(self, code, width=None):
 
@@ -132,7 +131,6 @@ class RBridge:
         msg = {"type": f"{type}", "data": state}
         self.process.stdin.write(json.dumps(msg) + "\n")
         self.process.stdin.flush()
-        self.process.stdout.readline().strip()
 
     def _find_rscript(self):
         saved = plugin_settings.get_r_path()
