@@ -5,20 +5,22 @@
 ![QGIS](https://img.shields.io/badge/QGIS-3.30%2B-brightgreen.svg)
 ![License](https://img.shields.io/badge/License-GPL%20v2-green.svg)
 
-An R console integrated into QGIS as a dock widget. Write and execute R code directly inside QGIS while having full access to the active project's layers, CRS, extent, and other properties from R.
+An R console integrated into QGIS. Write and execute R code directly inside QGIS with full access to the active project's layers, CRS, extent, and properties from R. Supports bidirectional interoperability: load vector and raster layers from QGIS into R, and insert R spatial objects back into the project.
 
 ## Features
 
 - Interactive R console with command history
-- Script editor with syntax highlighting, autocompletion, and calltips
+- Multi-tab script editor with R syntax highlighting
+- Dynamic autocompletion: function signatures are loaded automatically when new packages are attached
+- UI controls to restart the R session, clear the console, and change the working directory
 - Bidirectional interoperability between R and QGIS:
   - Read project metadata (title, path, CRS, map units)
   - Load vector and raster layers from QGIS into R as `sf` or `SpatRaster` objects
   - Insert R spatial objects back into the QGIS project
-  - Access the current map canvas extent
   - Load selected features from the active layer
 - Automatic project state synchronization when layers or project properties change
-- Dynamic autocompletion: function signatures are loaded automatically when new packages are attached
+- Get selected features from the active layer
+- Configurable R path and initial working directory
 
 ## Requirements
 
@@ -34,12 +36,7 @@ install.packages(c("R6", "jsonlite", "evaluate", "sf", "terra"))
 
 ## Installation
 
-Install from the QGIS Plugin Repository: **Plugins → Manage and Install Plugins → Search "R Console"**.
-
-Or install manually by downloading the repository and copying it to your QGIS plugins directory:
-
-- Linux/macOS: `~/.local/share/QGIS/QGIS3/profiles/default/python/plugins/`
-- Windows: `%APPDATA%\QGIS\QGIS3\profiles\default\python\plugins\`
+Install manually by downloading the repository and copying it to your QGIS plugins directory
 
 ## Usage
 

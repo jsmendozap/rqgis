@@ -61,7 +61,6 @@ class RBridge:
 
         while True:
             response = self.process.stdout.readline().strip()
-            print(response)
             if not response:
                 raise RuntimeError("R process ended unexpectedly.")
             

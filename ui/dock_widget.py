@@ -369,7 +369,6 @@ class RDockWidget(QDockWidget):
             if opens <= 0 and not is_pipe:
                 if start_line <= line <= i:
                     result = '\n'.join(current)
-                    print(f"expression_at_cursor returning: {result!r}")
                     return result
                 current = []
                 opens = 0
