@@ -61,6 +61,7 @@ class EditorTab(QgsCodeEditorR):
         self.setAutoCompletionUseSingle(QsciScintilla.AcusNever)
         self.setCallTipsPosition(QsciScintilla.CallTipsAboveText)
         self.setCallTipsVisible(1)
+        self.setFolding(QsciScintilla.NoFoldStyle)
 
         self.api = QsciAPIs(self.lexer())
 

@@ -10,7 +10,7 @@ from qgis.PyQt.QtGui import QTextCursor
 
 from .editor import EditorTabsWidget, EditorTab
 from .console import RConsole
-from .settings_widget import RDockSettings
+from .settings import RDockSettings
 from ..core import plugin_settings
 
 

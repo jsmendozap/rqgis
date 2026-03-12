@@ -239,8 +239,8 @@ QgisProject <- R6Class("QgisProject",
                           print = function(...) {
                             cat("<QGIS Project Object>\n")
                             cat("@ Title:", private$.title, "\n")
-                            cat("@ Path: ", private$.path, "\n")
-                            cat("@ CRS:  ", private$.crs, "\n")
+                            cat("@ Path:", private$.path, "\n")
+                            cat("@ CRS:", private$.crs, "\n")
                             cat("@ Map units:", private$.units, "\n")
                             invisible(self)
                           }

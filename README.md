@@ -10,8 +10,7 @@ An R console integrated into QGIS. Write and execute R code directly inside QGIS
 ## Features
 
 - Interactive R console with command history
-- Multi-tab script editor with R syntax highlighting
-- Dynamic autocompletion: function signatures are loaded automatically when new packages are attached
+- Multi-tab script editor with R syntax highlighting and autocompletion
 - UI controls to restart the R session, clear the console, and change the working directory
 - Bidirectional interoperability between R and QGIS:
   - Read project metadata (title, path, CRS, map units)

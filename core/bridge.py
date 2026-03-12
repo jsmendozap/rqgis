@@ -51,7 +51,7 @@ class RBridge:
         if self.qgis_api.result:
             self._send_project_update(type="update")
 
-        data = {"code": code}
+        data = {"code": code.replace('\r\n', '\n')}
         if width:
             data["width"] = int(width)
         request = json.dumps(data) + "\n"
