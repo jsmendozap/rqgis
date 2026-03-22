@@ -35,7 +35,7 @@ install.packages(c("R6", "jsonlite", "evaluate", "sf", "terra"))
 
 ## Installation
 
-Install manually by downloading the repository and copying it to your QGIS plugins directory
+Install the plugin manually by downloading the repository. Then, it can be installed from Plugins → Manage and Install plugins → Install from ZIP.
 
 ## Usage
 
