@@ -27,10 +27,9 @@ send_fns <- function(pkgs) {
 }
 
 send_help <- function(url) {
-    html_path <- paste0(url, ".html")
     path <- tempfile(fileext = ".html")
-    tools::Rd2HTML(utils:::.getHelpFile(url), out = html_path)
-    msg <- toJSON(list(type = "help", path = html_path), auto_unbox = TRUE)
+    tools::Rd2HTML(utils:::.getHelpFile(url), out = path)
+    msg <- toJSON(list(type = "help", path = path), auto_unbox = TRUE)
     cat(msg, "\n", file = .out, sep = "")
     flush(.out)
 }
