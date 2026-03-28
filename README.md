@@ -1,11 +1,13 @@
 # R Console
 
 ![Status](https://img.shields.io/badge/Status-Experimental-orange.svg)
-![Version](https://img.shields.io/badge/Version-0.1.0-blue.svg)
+![Version](https://img.shields.io/badge/Version-0.2.1-blue.svg)
 ![QGIS](https://img.shields.io/badge/QGIS-3.30%2B-brightgreen.svg)
 ![License](https://img.shields.io/badge/License-GPL%20v2-green.svg)
 
 An R console integrated into QGIS. Write and execute R code directly inside QGIS with full access to the active project's layers, CRS, extent, and properties from R. Supports bidirectional interoperability: load vector and raster layers from QGIS into R, and insert R spatial objects back into the project.
+
+> **⚠️ Note:** This project is currently in an early stage of development. While the core functionalities are already implemented and fully functional, there are still several features and improvements pending (please refer to the [Roadmap](#roadmap) below).
 
 ## Features
 
@@ -21,9 +23,18 @@ An R console integrated into QGIS. Write and execute R code directly inside QGIS
 - Get selected features from the active layer
 - Configurable R path and initial working directory
 
+## Roadmap
+
+- [ ] Support for `plot` command
+- [ ] Support for `View` command
+- [ ] Enable functions that require user interaction (e.g. `file.choose`, `menu`, ...)
+- [ ] Pseudo-terminal (PTY) emulation for full interactive support
+- [ ] Compatibility with QGIS 4
+- [ ] Language Server Protocol (LSP) implementation for advanced editor features
+
 ## Requirements
 
-- QGIS 3.30 or later
+- QGIS 3.30 or later (QGIS 4 is not yet supported)
 - R 4.1.0 or later 
 - R packages: `R6`, `jsonlite`, `evaluate`, `sf`, `terra`
 
@@ -41,8 +52,7 @@ The R Console plugin is available in the official QGIS Plugin Repository.
 2.  Search for **"R Console"** in the `All` tab.
 3.  Select **R Console** from the list and click **Install Plugin**.
 
-> **Note**
-> The plugin is marked as experimental. If you cannot find it, go to the **Settings** tab in the plugin manager and make sure the **"Show also experimental plugins"** option is checked.
+> **Note:** This plugin is marked as experimental. If you cannot find it, go to the **Settings** tab in the plugin manager and make sure the **"Show also experimental plugins"** option is checked.
 
 ## Usage
 
