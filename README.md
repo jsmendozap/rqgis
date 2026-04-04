@@ -26,9 +26,9 @@ An R console integrated into QGIS. Write and execute R code directly inside QGIS
 
 ## Roadmap
 
-- [ ] Support for `plot` command
-- [ ] Support for `View` command
-- [ ] Enable functions that require user interaction (e.g. `file.choose`, `menu`, ...)
+- [x] Support for `plot` command
+- [x] Support for `View` command
+- [x] Enable functions that require user interaction (e.g. `file.choose`, `menu`, ...)
 - [ ] Pseudo-terminal (PTY) emulation for full interactive support
 - [ ] Compatibility with QGIS 4
 - [ ] Language Server Protocol (LSP) implementation for advanced editor features
@@ -37,12 +37,12 @@ An R console integrated into QGIS. Write and execute R code directly inside QGIS
 
 - QGIS 3.30 or later (QGIS 4 is not yet supported)
 - R 4.1.0 or later 
-- R packages: `R6`, `jsonlite`, `evaluate`, `sf`, `terra`
+- R packages: `R6`, `jsonlite`, `evaluate`, `httpgd`, `sf`, `terra`
 
 Install the required R packages before using the plugin:
 
 ```r
-install.packages(c("R6", "jsonlite", "evaluate", "sf", "terra"))
+install.packages(c("R6", "jsonlite", "evaluate", "httpgd", "sf", "terra"))
 ```
 
 ## Installation

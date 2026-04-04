@@ -1,14 +1,12 @@
-send_chunk <- function(data) {
-    msg <- toJSON(list(type = "chunk", data = data), auto_unbox = TRUE)
+send_message <- function(type, data) {
+    msg <- toJSON(list(type = type, data = data), auto_unbox = TRUE, null = "null")
     cat(msg, "\n", file = .out, sep = "")
     flush(.out)
 }
 
-send_expression <- function(expr) {
-    msg <- toJSON(list(type = "expression", data = expr), auto_unbox = TRUE)
-    cat(msg, "\n", file = .out, sep = "")
-    flush(.out) 
-}
+send_chunk <- function(data) send_message("chunk", data)
+send_expression <- function(expr) send_message("expression", expr)
+send_fns <- function(pkgs) send_message("pkg", pkgs)
 
 send_done <- function(error = NULL) {
     msg <- toJSON(
@@ -16,12 +14,6 @@ send_done <- function(error = NULL) {
         auto_unbox = TRUE,
         null = "null"
     )
-    cat(msg, "\n", file = .out, sep = "")
-    flush(.out)
-}
-
-send_fns <- function(pkgs) {
-    msg <- toJSON(list(type = "pkg", data = pkgs), auto_unbox = TRUE)
     cat(msg, "\n", file = .out, sep = "")
     flush(.out)
 }

@@ -133,7 +133,7 @@ options(
     askYesNo = .ask_yes_no,
     browser = "false",
     shiny.launch.browser = FALSE,
-    device = "pdf", 
+    device = "httpgd", 
     viewer = NULL,
     echo = FALSE, 
     max.print = 100

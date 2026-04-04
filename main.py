@@ -77,7 +77,7 @@ class Console:
             self.dock = RDockWidget(self.iface.mainWindow())
             self._connect_dock_signals()
             self.iface.addDockWidget(Qt.RightDockWidgetArea, self.dock)
-
+            
         self._ensure_runner(False)
 
         self.dock.show()
@@ -296,7 +296,7 @@ class Console:
         self.runner.pkg_loaded.connect(self.dock.on_pkg_loaded)
         self.runner.help_requested.connect(self.dock.show_help_dialog)
         self.runner.help_requested.connect(lambda path: self.qgis_api.add_temp_file(path))
-
+        self.runner.plot_server.connect(lambda data: self.dock.connect_plot_server(data))
 
     def _disconnect_project_updates(self):
         """Disconnects from all QGIS project signals."""

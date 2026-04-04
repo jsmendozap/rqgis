@@ -1,81 +1,67 @@
-"""Defines the RResult class for parsing messages from the R process."""
+"""Defines result classes for parsing messages from the R process."""
 from .utils import MissingDependencyError
 
-class RResult(dict):
-    """
-    A dictionary-like object that parses and represents a JSON message from R.
+class RResult:
+    stdout = ""
+    error = None
+    wd = None
+    expression = None
 
-    It categorizes the message (e.g., chunk of output, error, request for data)
-    and provides convenient properties to access its contents.
-    """
-
-    def __init__(self, msg):
-        """
-        Initializes and parses the message from R.
-
-        Args:
-            msg (dict): The raw JSON message received from the R subprocess.
-        """
-        super().__init__()
-        self.stdout = ""
-        self.error = None
-        self.wd = None
-        self.expression = None
-        self.is_done = False
-        self.is_request = False
-        self.is_pkg = False
-        self.is_help = False
-        self.method = None
-        self.args = None
-        self.signatures = None
-        self.path = None
-        self._parse(msg)
-
-    def _parse(self, msg):
-        """
-        Parses the raw message dictionary and sets the object's properties.
-
-        Args:
-            msg (dict): The raw JSON message.
-
-        Raises:
-            MissingDependencyError: If R reports a missing package.
-        """
+    @staticmethod
+    def from_msg(msg):
         match msg["type"]:
-            case "expression":
-                self.expression = msg["data"]
-            case "chunk":
-                self.stdout = msg["data"]
-                self.wd = msg.get("wd")
-                self.update(stdout=self.stdout, error=None, wd=self.wd)
-            case "done":
-                self.error = msg.get("error")
-                self.wd = msg.get("wd")
-                self.is_done = True
-                self.update(stdout="", error=self.error, wd=self.wd)
-            case "request":
-                self.method = msg["method"]
-                self.args = msg.get("args")
-                self.is_request = True
-                self.is_done = False
-            case "pkg":
-                self.signatures = msg['data']
-                self.is_pkg = True
-            case "help":
-                self.is_help = True
-                self.path = msg['path']
-            case "question":
-                self.method = "question"
-                self.args = msg
-                self.is_request = True
-                self.is_done = False
-            case "missing":
-                raise MissingDependencyError(f"The following R packages are required but are not installed: {msg['data']}")
+            case "chunk":       return ChunkResult(msg)
+            case "done":        return DoneResult(msg)
+            case "expression":  return ExpressionResult(msg)
+            case "request":     return RequestResult(msg)
+            case "question":    return QuestionResult(msg)
+            case "pkg":         return PkgResult(msg)
+            case "help":        return HelpResult(msg)
+            case "plot_server": return PlotServerResult(msg)
+            case "missing":     raise MissingDependencyError(msg["data"])
 
-    def __bool__(self):
-        """
-        Returns False if the message indicates the end of an execution block.
 
-        This is used to control the loop in RBridge.run_code.
-        """
-        return not self.is_done
+class ChunkResult(RResult):
+    def __init__(self, msg):
+        self.stdout = msg["data"]
+        self.error = None
+        self.wd = msg.get("wd")
+
+
+class DoneResult(RResult):
+    def __init__(self, msg):
+        self.error = msg.get("error")
+        self.wd = msg.get("wd")
+
+
+class ExpressionResult(RResult):
+    def __init__(self, msg):
+        self.expression = msg["data"]
+
+
+class RequestResult(RResult):
+    def __init__(self, msg):
+        self.method = msg["method"]
+        self.args = msg.get("args")
+
+
+class QuestionResult(RequestResult):
+    def __init__(self, msg):
+        self.method = "question"
+        self.args = msg
+
+
+class PkgResult(RResult):
+    def __init__(self, msg):
+        self.signatures = msg["data"]
+
+
+class HelpResult(RResult):
+    def __init__(self, msg):
+        self.path = msg["path"]
+
+
+class PlotServerResult(RResult):
+    def __init__(self, msg):
+        self.port = msg["data"]["port"]
+        self.token = msg["data"]["token"]

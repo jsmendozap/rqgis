@@ -1,5 +1,5 @@
 from qgis.PyQt.QtCore import QMetaObject, Qt, Q_ARG
-from .result import RResult
+from .result import RResult, RequestResult, PkgResult, HelpResult, PlotServerResult, DoneResult
 from .utils import RPathRequiredError, root_dir
 from . import plugin_settings
 from shutil import which
@@ -10,21 +10,19 @@ import os
 class RBridge:
     """Handles the lifecycle and communication with the R subprocess."""
 
-    def __init__(self, qgis_api, on_pkg_loaded, on_help_requested):
+    def __init__(self, qgis_api, callbacks):
         """
         Initializes the RBridge.
 
         Args:
             qgis_api: An instance of QGISApi to handle requests from R.
-            on_pkg_loaded (callable): A callback function to be invoked when R
-                                      loads a new package.
+            callbacks: An instance of BridgeCallbacks containing the callback functions.
         """
         self.plugin_dir = root_dir()
         self.process = None
         self.qgis_api = qgis_api
         self.r = self._find_rscript()
-        self.pkg_loaded = on_pkg_loaded
-        self.help_requested = on_help_requested
+        self.callbacks = callbacks
 
     def initialize(self):
         """Starts the R subprocess and sets the initial working directory."""
@@ -65,9 +63,9 @@ class RBridge:
             if not response:
                 raise RuntimeError("R process ended unexpectedly.")
             
-            result = RResult(json.loads(response))
+            result = RResult.from_msg(json.loads(response))
 
-            if result.is_request:
+            if isinstance(result, RequestResult):
                 QMetaObject.invokeMethod(
                     self.qgis_api,
                     "dispatch",
@@ -81,16 +79,20 @@ class RBridge:
                 self.process.stdin.flush()
                 continue 
 
-            if result.is_pkg:
-                self.pkg_loaded(result.signatures)
+            if isinstance(result, PkgResult):
+                self.callbacks.on_pkg_loaded(result.signatures)
                 continue
 
-            if result.is_help:
-                self.help_requested(result.path)
+            if isinstance(result, HelpResult):
+                self.callbacks.on_help_requested(result.path)
+                continue
+
+            if isinstance(result, PlotServerResult):
+                self.callbacks.on_plot_server_ready(result.port, result.token)
                 continue
 
             yield result
-            if result.is_done:
+            if isinstance(result, DoneResult):
                 break
     
     def run_welcome(self,width=None):
@@ -112,12 +114,12 @@ class RBridge:
         wd = None
 
         for result in self.run_code(code, width=width):
-            if not result.is_done:
+            if not isinstance(result, DoneResult):
                 stdout += result.stdout
             else:
                 wd = result.wd
         
-        return RResult({"type": "chunk", "data": stdout, "wd": wd})
+        return RResult.from_msg({"type": "chunk", "data": stdout, "wd": wd})
 
     def stop(self):
         """Terminates the R subprocess gracefully."""
@@ -166,6 +168,7 @@ class RBridge:
             args,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             text=True,
             encoding='utf-8',
             bufsize=0,

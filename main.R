@@ -5,7 +5,7 @@ cat("READY\n")
 flush(.out)
 
 local({
-    pkgs <- c("jsonlite", "evaluate", "R6")
+    pkgs <- c("jsonlite", "evaluate", "R6", "httpgd")
     missing <- pkgs[!sapply(pkgs, requireNamespace, quietly = TRUE)]
 
     if (length(missing) > 0) {
@@ -15,6 +15,15 @@ local({
         quit(status = 1)
     } else {
         invisible(lapply(pkgs[1:3], library, character.only = TRUE))
+
+        source(file.path(.plugin_dir, "core", "r", "protocol.R"), local = TRUE)
+        httpgd::hgd(width = 380, height = 250, silent = TRUE)
+        par(mar = c(4, 4, 2, 1))
+        details <- httpgd::hgd_details()
+        send_message("plot_server", list(
+            port = details$port,
+            token = details$token
+        ))
     }
 })
 

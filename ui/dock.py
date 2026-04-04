@@ -9,6 +9,7 @@ import os
 from qgis.PyQt.QtGui import QTextCursor
 
 from .editor import EditorTabsWidget, EditorTab
+from .plot import PlotPanel
 from .console import RConsole
 from .settings import RDockSettings
 from .help import HelpDialog
@@ -96,8 +97,8 @@ class RDockWidget(QDockWidget):
         line = "" if self._from_console else line
         self.console.add_to_console(line, result)
 
-        if result.get("wd") and result.get("wd") != self.wd:
-            self.wd = result.get("wd")
+        if result.wd and result.wd != self.wd:
+            self.wd = result.wd
             self.set_console_header(self.wd, emit = False)
 
         self._from_console = False
@@ -114,11 +115,11 @@ class RDockWidget(QDockWidget):
         if self.console.textCursor().selectedText().strip() == self.console.prompt.strip():
             self.console.textCursor().removeSelectedText()
         
-        if result.get("stdout"):
-            self.console.append_raw(result["stdout"] + "\n")
+        if result.stdout:
+            self.console.append_raw(result.stdout + "\n")
 
         self.console.new_line()
-        self.set_console_header(result.get("wd"))
+        self.set_console_header(result.wd)
 
     def clean_console(self, prompt):
         """Clears the console widget."""
@@ -134,6 +135,9 @@ class RDockWidget(QDockWidget):
         """Returns the approximate width of the console in characters."""
         return self.console.width_cols
     
+    def connect_plot_server(self, data):
+        self.plot_panel.connect_to_server(data)
+
     def on_pkg_loaded(self, signatures):
         """
         Updates the editor's autocompleter with new function signatures.
@@ -251,6 +255,9 @@ class RDockWidget(QDockWidget):
         tab_layout.addWidget(self.console_shell)
         self.output_tabs.addTab(console_tab, "Console")
 
+        self.plot_panel = PlotPanel()
+        self.output_tabs.addTab(self.plot_panel, "Plots")
+
         self.console_shell.setStyleSheet("""
             #consoleShell {
                 background: #f7f8fa;
@@ -288,7 +295,7 @@ class RDockWidget(QDockWidget):
         splitter = QSplitter(Qt.Vertical)
         splitter.addWidget(self.editor_tabs)
         splitter.addWidget(self.output_tabs)
-        splitter.setSizes([350, 250])
+        splitter.setSizes([320, 280])
 
         layout.addWidget(splitter)
 
@@ -303,6 +310,8 @@ class RDockWidget(QDockWidget):
         self.wd_button.clicked.connect(self._on_change_wd)
         self.console.runRequested.connect(self._on_console_run)
         self.executionStateChanged.connect(self.set_running_state)
+        self.plot_panel.plotAdded.connect(lambda: self.output_tabs.setCurrentWidget(self.plot_panel))
+        self.runRequested.connect(lambda: self.output_tabs.setCurrentIndex(0))
         self._register_shortcuts()
 
     def _on_change_wd(self):
@@ -342,7 +351,7 @@ class RDockWidget(QDockWidget):
 
         if not code.strip():
             return
-        self.runRequested.emit(code)
+        self.runRequested.emit(code)        
 
     def _on_console_run(self, code):
         """Handles code submitted directly from the console input."""

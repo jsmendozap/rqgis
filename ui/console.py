@@ -44,11 +44,11 @@ class RConsole(QTextEdit):
                 self.history_list.append(line)
                 self.history_index = len(self.history_list)
 
-        if result.get("error") is not None:
-            self.append(f"<span style='color:#c0392b;'>Error: {html.escape(result['error'])}</span>")
+        if result.error is not None:
+            self.append(f"<span style='color:#c0392b;'>Error: {html.escape(result.error)}</span>")
 
-        if result.get("stdout"):
-            self.append(f"<pre style='margin:0;'>{html.escape(result['stdout'])}</pre>")
+        if result.stdout:
+            self.append(f"<pre style='margin:0;'>{html.escape(result.stdout)}</pre>")
 
     def append_raw(self, text):
         if text:

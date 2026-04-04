@@ -1,8 +1,17 @@
 """Manages the R execution thread to keep the QGIS UI responsive."""
 from qgis.PyQt.QtCore import QObject, QThread, pyqtSignal, pyqtSlot, QMetaObject, Qt
+from dataclasses import dataclass
+from typing import Callable
+
 from .utils import MissingDependencyError, RPathRequiredError
+from .result import ExpressionResult
 from .bridge import RBridge 
 
+@dataclass
+class BridgeCallbacks:
+    on_pkg_loaded: Callable
+    on_help_requested: Callable
+    on_plot_server_ready: Callable
 
 class RWorker(QObject):
     """
@@ -12,14 +21,15 @@ class RWorker(QObject):
     with the main GUI thread via Qt signals and slots.
     """
     initialized = pyqtSignal()        
-    line_result = pyqtSignal(str, dict)  
-    welcome_result = pyqtSignal(dict)
+    line_result = pyqtSignal(str, object)  
+    welcome_result = pyqtSignal(object)
     run_finished = pyqtSignal()
     failed = pyqtSignal(str)
     busy_changed = pyqtSignal(bool)
     path_required = pyqtSignal()
     pkg_loaded = pyqtSignal(list)
     help_requested = pyqtSignal(str)
+    plot_server = pyqtSignal(tuple)
 
     def __init__(self, qgis_api):
         """
@@ -39,7 +49,12 @@ class RWorker(QObject):
         'path_required'/'failed' on error.
         """
         try:
-            self.bridge = RBridge(self.qgis_api, self._on_pkg_loaded, self._on_help_requested)
+            callbacks = BridgeCallbacks(
+                on_pkg_loaded=self._on_pkg_loaded,
+                on_help_requested=self._on_help_requested,
+                on_plot_server_ready=self._on_plot_server_ready
+            )
+            self.bridge = RBridge(self.qgis_api, callbacks)
             self.bridge.initialize()
             self.initialized.emit()
         except RPathRequiredError:
@@ -72,10 +87,8 @@ class RWorker(QObject):
         self.busy_changed.emit(True)
         try:
             for result in self.bridge.run_code(code, width=width):
-                if result.expression:
+                if isinstance(result, ExpressionResult):
                     self.line_result.emit(result.expression, result)
-                elif result:
-                    self.line_result.emit("", result)
                 else:
                     self.line_result.emit("", result)
         except Exception as e:
@@ -155,6 +168,16 @@ class RWorker(QObject):
         """
         self.help_requested.emit(path)
 
+    def _on_plot_server_ready(self, port, token):
+        """
+        Callback for when the R bridge reports the plot server is ready.
+
+        Args:
+            port (int): The port number where the plot server is listening.
+            token (str): A token for authenticating with the plot server.
+        """
+        self.plot_server.emit((port, token))
+
 
 class RRunner(QObject):
     """
@@ -165,8 +188,8 @@ class RRunner(QObject):
     and connects the worker's signals to the appropriate slots in the GUI.
     """
     initialized = pyqtSignal()
-    line_result = pyqtSignal(str, dict)
-    welcome_result = pyqtSignal(dict)
+    line_result = pyqtSignal(str, object)
+    welcome_result = pyqtSignal(object)
     run_finished = pyqtSignal()
     failed = pyqtSignal(str)
     busy_changed = pyqtSignal(bool)
@@ -178,6 +201,7 @@ class RRunner(QObject):
     request_change_wd = pyqtSignal(str)
     pkg_loaded = pyqtSignal(list)
     help_requested = pyqtSignal(str)
+    plot_server = pyqtSignal(tuple)
 
     def __init__(self, qgis_api):
         """
@@ -251,6 +275,7 @@ class RRunner(QObject):
         self._worker.busy_changed.connect(self.busy_changed)
         self._worker.pkg_loaded.connect(self.pkg_loaded)
         self._worker.help_requested.connect(self.help_requested)
+        self._worker.plot_server.connect(self.plot_server)
 
     def _connect_request_signals(self):
         """Connects this object's request signals to the worker's slots."""

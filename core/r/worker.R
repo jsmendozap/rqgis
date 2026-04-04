@@ -83,7 +83,8 @@
                         next
                     }
 
-                    evaluate(modified, output_handler = handler, stop_on_error = 1L, envir = globalenv())
+                    evaluate(modified, output_handler = handler, stop_on_error = 1L,
+                            envir = globalenv(), new_device = FALSE)
                     if (!is.null(error_msg)) break
                 }
 
