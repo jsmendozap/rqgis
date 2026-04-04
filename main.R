@@ -15,6 +15,7 @@ local({
         quit(status = 1)
     } else {
         invisible(lapply(pkgs[1:3], library, character.only = TRUE))
+        suppressMessages(tools::startDynamicHelp())
 
         source(file.path(.plugin_dir, "core", "r", "protocol.R"), local = TRUE)
         httpgd::hgd(width = 380, height = 250, silent = TRUE)

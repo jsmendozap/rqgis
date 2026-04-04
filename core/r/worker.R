@@ -66,23 +66,6 @@
                     modified <- paste(deparse(inject_flush(exprs[[i]])), collapse = "\n")
                     send_expression(original)
                     
-                    if (grepl("^`\\?`|^\\?|^help\\(", trimws(original))) {
-                        topic <- trimws(original)
-                        topic <- sub("^`\\?`\\((.+)\\)$", "\\1", topic)
-                        topic <- sub("^\\?+", "", topic)
-                        topic <- sub("^help\\((.+)\\)$", "\\1", topic)
-                        topic <- gsub('["\']', '', topic) 
-                        
-                        url <- as.character(help(topic, help_type = "html"))
-
-                        if (length(url) == 0) {
-                            send_done(error = paste("function", topic, "not found"))
-                        } else {
-                            send_help(url)
-                        }
-                        next
-                    }
-
                     evaluate(modified, output_handler = handler, stop_on_error = 1L,
                             envir = globalenv(), new_device = FALSE)
                     if (!is.null(error_msg)) break

@@ -58,7 +58,7 @@ class PkgResult(RResult):
 
 class HelpResult(RResult):
     def __init__(self, msg):
-        self.path = msg["path"]
+        self.html = msg["html"]
 
 
 class PlotServerResult(RResult):

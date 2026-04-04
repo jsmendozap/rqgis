@@ -18,10 +18,8 @@ send_done <- function(error = NULL) {
     flush(.out)
 }
 
-send_help <- function(url) {
-    path <- tempfile(fileext = ".html")
-    tools::Rd2HTML(utils:::.getHelpFile(url), out = path)
-    msg <- toJSON(list(type = "help", path = path), auto_unbox = TRUE)
+send_help <- function(html) {
+    msg <- toJSON(list(type = "help", html = html), auto_unbox = TRUE)
     cat(msg, "\n", file = .out, sep = "")
     flush(.out)
 }

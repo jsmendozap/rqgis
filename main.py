@@ -295,7 +295,6 @@ class Console:
         self.runner.busy_changed.connect(self.dock.executionStateChanged.emit)
         self.runner.pkg_loaded.connect(self.dock.on_pkg_loaded)
         self.runner.help_requested.connect(self.dock.show_help_dialog)
-        self.runner.help_requested.connect(lambda path: self.qgis_api.add_temp_file(path))
         self.runner.plot_server.connect(lambda data: self.dock.connect_plot_server(data))
 
     def _disconnect_project_updates(self):

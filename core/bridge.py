@@ -84,7 +84,8 @@ class RBridge:
                 continue
 
             if isinstance(result, HelpResult):
-                self.callbacks.on_help_requested(result.path)
+                print(f"Help requested for: {result.html}")
+                self.callbacks.on_help_requested(result.html)
                 continue
 
             if isinstance(result, PlotServerResult):

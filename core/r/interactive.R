@@ -131,10 +131,13 @@ options(
     editor = .editor,
     rlang_interactive = TRUE,
     askYesNo = .ask_yes_no,
-    browser = "false",
     shiny.launch.browser = FALSE,
     device = "httpgd", 
-    viewer = NULL,
+    browser = function(url, ...) {
+        html <- paste(readLines(url, warn = FALSE), collapse = "\n")
+        send_help(html)
+    },
+    help_type = "html",
     echo = FALSE, 
     max.print = 100
 )
