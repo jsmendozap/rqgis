@@ -241,6 +241,11 @@ class Console:
             self.runner.change_wd(path)
             self.dock.clean_console(prompt=False)
     
+    def _on_stop_requested(self):
+        """Slot triggered when the user requests to stop the current execution."""
+        if self.runner and self._state == RSessionState.RUNNING:
+            self.runner.interrupt()
+
     def _on_change_wd(self, path):
         """Slot to change the working directory in the R session."""
         if self.runner:
@@ -281,6 +286,7 @@ class Console:
         """Connects signals from the RDockWidget to this controller's slots."""
         self.dock.runRequested.connect(self._on_run_requested)
         self.dock.restartRequested.connect(self._on_restart_requested)
+        self.dock.stopRequested.connect(self._on_stop_requested)
         self.dock.changeWd.connect(self._on_change_wd)
         self.dock.closing.connect(self._stop_runner)
 

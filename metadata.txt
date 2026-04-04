@@ -4,7 +4,7 @@ about=R Console embeds a full R environment inside QGIS. It provides an interact
 qgisMinimumVersion=3.30
 qgisMaximumVersion=3.99
 description=A code editor and R console integrated into QGIS
-version=0.2.1
+version=0.3
 author=Juan Mendoza
 email=jsmendozap@gmail.com
 tracker=https://github.com/jsmendozap/rqgis/issues
@@ -13,6 +13,10 @@ homepage=https://github.com/jsmendozap/rqgis
 tags=R
 icon=resources/Rlogo.png
 experimental=True
+changelog=0.3
+    - Support for plot command
+    - Support for interactive commands (menu, file.choose, View)
+    - Data frame preview as table when using View command
 deprecated=False
 server=False
 hasProcessingProvider=False

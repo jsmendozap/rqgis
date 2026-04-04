@@ -245,6 +245,11 @@ class RRunner(QObject):
         """Requests the worker to restart the R process."""
         self.request_restart.emit()
 
+    def interrupt(self):
+        """Sends an interrupt signal directly to the bridge for stopping the current execution."""
+        if self._worker and self._worker.bridge:
+            self._worker.bridge.interrupt()
+
     def stop(self):
         """Stops the worker and waits for the thread to terminate."""
         QMetaObject.invokeMethod(

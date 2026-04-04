@@ -14,8 +14,7 @@ class PlotPanel(QWidget):
         self._setup_ui()
 
     def connect_to_server(self, data):
-        self._port = data[0]
-        self._token = data[1]
+        self._port, self._token = data
         self._socket.open(QUrl(f"ws://127.0.0.1:{self._port}/"))
 
     def _setup_ui(self):

@@ -6,6 +6,7 @@ from shutil import which
 import subprocess
 import json
 import os
+import signal
 
 class RBridge:
     """Handles the lifecycle and communication with the R subprocess."""
@@ -84,7 +85,6 @@ class RBridge:
                 continue
 
             if isinstance(result, HelpResult):
-                print(f"Help requested for: {result.html}")
                 self.callbacks.on_help_requested(result.html)
                 continue
 
@@ -137,7 +137,15 @@ class RBridge:
         """Stops and then restarts the R subprocess."""
         self.stop()
         self.process = self._start()
-            
+
+    def interrupt(self):
+        """Sends an interrupt signal to the R subprocess to stop current execution."""
+        if self.process and self.process.poll() is None:
+            if os.name == 'nt':
+                self.process.send_signal(signal.CTRL_BREAK_EVENT)
+            else:
+                os.kill(self.process.pid, signal.SIGINT)
+                
     def _start(self):
         """
         Launches the R worker subprocess.
@@ -174,7 +182,8 @@ class RBridge:
             encoding='utf-8',
             bufsize=0,
             cwd=self.plugin_dir, 
-            creationflags=creationflags
+            creationflags=creationflags, 
+            start_new_session= True if not os.name == 'nt' else False
         )
 
         ready = process.stdout.readline().strip()

@@ -27,6 +27,7 @@ class RDockWidget(QDockWidget):
     runRequested = pyqtSignal(str)
     executionStateChanged = pyqtSignal(bool)
     restartRequested = pyqtSignal(str)
+    stopRequested = pyqtSignal()
     changeWd = pyqtSignal(str)
     closing = pyqtSignal()
 
@@ -187,6 +188,10 @@ class RDockWidget(QDockWidget):
         self.restart_button.setIcon(self.style().standardIcon(QStyle.SP_BrowserReload))
         self.restart_button.setToolTip("Restart R")
 
+        self.stop_button = QToolButton()
+        self.stop_button.setIcon(self.style().standardIcon(QStyle.SP_BrowserStop))
+        self.stop_button.setToolTip("Stop execution")
+
         self.wd_button = QToolButton()
         self.wd_button.setIcon(self.style().standardIcon(QStyle.SP_DirOpenIcon))
         self.wd_button.setToolTip("Change working directory")
@@ -213,6 +218,7 @@ class RDockWidget(QDockWidget):
         corner_layout.setContentsMargins(0, 0, 4, 3)
         corner_layout.addWidget(self.clear_button)
         corner_layout.addWidget(self.restart_button)
+        #corner_layout.addWidget(self.stop_button)
         corner_layout.addWidget(self.wd_button)
         self.output_tabs.setCornerWidget(corner_console, Qt.TopRightCorner)
 
@@ -307,6 +313,7 @@ class RDockWidget(QDockWidget):
         self.save_button.clicked.connect(self.editor_tabs.save_current)
         self.open_button.clicked.connect(self.editor_tabs.open_script)
         self.restart_button.clicked.connect(lambda: self.restartRequested.emit(self.wd))
+        self.stop_button.clicked.connect(lambda: self.stopRequested.emit())
         self.wd_button.clicked.connect(self._on_change_wd)
         self.console.runRequested.connect(self._on_console_run)
         self.executionStateChanged.connect(self.set_running_state)
