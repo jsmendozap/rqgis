@@ -70,6 +70,16 @@ jobs:
             git push
           fi
 
+      - name: Build release notes
+        run: |
+          {
+            echo "# R Console V ${PLUGIN_VERSION}"
+            echo
+            echo "## Release notes"
+            echo
+            cat changelog.txt
+          } > release_notes.txt
+
       - name: Create Plugin ZIP
         if: env.CREATE_RELEASE == 'true'
         run: |
@@ -84,6 +94,6 @@ jobs:
           TAG_NAME="v${PLUGIN_VERSION}"
           
           gh release create "$TAG_NAME" r_console.zip \
-            --title "r_console $PLUGIN_VERSION" \
-            --notes-file changelog.txt \
+            --title "R Console V ${PLUGIN_VERSION}" \
+            --notes-file release_notes.txt \
             --target main

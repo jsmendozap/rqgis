@@ -18,13 +18,17 @@ local({
         suppressMessages(tools::startDynamicHelp())
 
         source(file.path(.plugin_dir, "core", "r", "protocol.R"), local = TRUE)
-        httpgd::hgd(width = 380, height = 250, silent = TRUE)
-        par(mar = c(4, 4, 2, 1))
-        details <- httpgd::hgd_details()
-        send_message("plot_server", list(
-            port = details$port,
-            token = details$token
-        ))
+
+        tryCatch({
+            httpgd::hgd(width = 380, height = 250, silent = TRUE)
+            par(mar = c(4, 4, 2, 1))
+            details <- httpgd::hgd_details()
+            send_message("plot_server", list(
+                port = details$port,
+                token = details$token
+            ))
+        }, error = function(e) send_done(error = conditionMessage(e))
+        )
     }
 })
 

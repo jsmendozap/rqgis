@@ -1,4 +1,4 @@
-from qgis.PyQt.QtWidgets import QDialog, QFormLayout, QDialogButtonBox, QVBoxLayout, QMessageBox
+from qgis.PyQt.QtWidgets import QDialog, QFormLayout, QDialogButtonBox, QVBoxLayout, QMessageBox, QCheckBox, QHBoxLayout, QWidget
 from qgis.gui import QgsFileWidget
 from ..core import utils
 from ..core import plugin_settings
@@ -26,6 +26,8 @@ class RDockSettings(QDialog):
             return
         plugin_settings.set_r_path(r_path)
         plugin_settings.set_initial_wd(self.initial_wd.filePath().strip())
+        plugin_settings.set_enable_log(self.enable_log.isChecked())
+        plugin_settings.set_log_dir(self.log_dir.filePath().strip())
         self.accept()
 
     def _build_layout(self):
@@ -40,8 +42,19 @@ class RDockSettings(QDialog):
         self.initial_wd = QgsFileWidget()
         self.initial_wd.setStorageMode(QgsFileWidget.GetDirectory)
 
+        self.enable_log = QCheckBox()
+        self.log_dir = QgsFileWidget()
+        self.log_dir.setStorageMode(QgsFileWidget.GetDirectory)
+
         form_layout.addRow("Working directory on startup:", self.initial_wd)
         form_layout.addRow("R/Rscript path:", self.r_path)
+        
+        log_row = QWidget()
+        log_row_layout = QHBoxLayout(log_row)
+        log_row_layout.setContentsMargins(0, 0, 0, 0)
+        log_row_layout.addWidget(self.enable_log)
+        log_row_layout.addWidget(self.log_dir)
+        form_layout.addRow("Session logs:", log_row)
 
         self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
 
@@ -51,6 +64,7 @@ class RDockSettings(QDialog):
     def _register_signals(self):
         self.button_box.accepted.connect(self.save_settings)
         self.button_box.rejected.connect(self.reject)
+        self.enable_log.toggled.connect(self._toggle_log_dir)
 
     def _load_settings(self):
         r_path = plugin_settings.get_r_path()
@@ -60,5 +74,15 @@ class RDockSettings(QDialog):
             self.r_path.setFilePath(r_path)
 
         self.initial_wd.setFilePath(initial)
+        self.enable_log.setChecked(plugin_settings.get_enable_log())
+        
+        log_dir = plugin_settings.get_log_dir()
+        if not log_dir:
+            log_dir = utils.root_dir()
+        self.log_dir.setFilePath(log_dir)
+        self._toggle_log_dir(self.enable_log.isChecked())
+
+    def _toggle_log_dir(self, enabled):
+        self.log_dir.setEnabled(bool(enabled))
 
             

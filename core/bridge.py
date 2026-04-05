@@ -1,6 +1,7 @@
 from qgis.PyQt.QtCore import QMetaObject, Qt, Q_ARG
 from .result import RResult, RequestResult, PkgResult, HelpResult, PlotServerResult, DoneResult
 from .utils import RPathRequiredError, root_dir
+from .logger import SessionLogger
 from . import plugin_settings
 from shutil import which
 import subprocess
@@ -24,6 +25,12 @@ class RBridge:
         self.qgis_api = qgis_api
         self.r = self._find_rscript()
         self.callbacks = callbacks
+        
+        if plugin_settings.get_enable_log():
+            log_dir = plugin_settings.get_log_dir().strip()
+            self._logger = SessionLogger(log_dir)
+        else:
+            self._logger = None
 
     def initialize(self):
         """Starts the R subprocess and sets the initial working directory."""
@@ -57,10 +64,14 @@ class RBridge:
         request = json.dumps(data) + "\n"
 
         self.process.stdin.write(request)
+        if self._logger:
+            self._logger.log(1, request)
         self.process.stdin.flush()
 
         while True:
             response = self.process.stdout.readline().strip()
+            if self._logger:
+                self._logger.log(2, response)
             if not response:
                 raise RuntimeError("R process ended unexpectedly.")
             
@@ -127,6 +138,8 @@ class RBridge:
         if self.process.poll() is not None:
             return
         self.process.terminate()
+        if self._logger:
+            self._logger.close()
         try:
             self.process.wait(timeout=2)
         except subprocess.TimeoutExpired:
