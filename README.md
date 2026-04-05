@@ -1,7 +1,7 @@
 # R Console
 
 ![Status](https://img.shields.io/badge/Status-Experimental-orange.svg)
-![Version](https://img.shields.io/badge/Version-0.3-blue.svg)
+![Version](https://img.shields.io/badge/Version-0.3.1-blue.svg)
 ![QGIS](https://img.shields.io/badge/QGIS-3.30%2B-brightgreen.svg)
 ![License](https://img.shields.io/badge/License-GPL%20v2-green.svg)
 
