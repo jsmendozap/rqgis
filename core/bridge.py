@@ -26,7 +26,7 @@ class RBridge:
         self.r = self._find_rscript()
         self.callbacks = callbacks
         
-        if plugin_settings.get_enable_log():
+        if plugin_settings.get_status_debug():
             log_dir = plugin_settings.get_log_dir().strip()
             self._logger = SessionLogger(log_dir)
         else:
@@ -58,20 +58,15 @@ class RBridge:
         if self.qgis_api.result:
             self._send_project_update(type="update")
 
-        data = {"code": code.replace('\r\n', '\n')}
-        if width:
-            data["width"] = int(width)
+        data = {"type": "code", "code": code.replace('\r\n', '\n'), "width": width}
         request = json.dumps(data) + "\n"
-
+        self._log(1, request)
         self.process.stdin.write(request)
-        if self._logger:
-            self._logger.log(1, request)
         self.process.stdin.flush()
 
         while True:
             response = self.process.stdout.readline().strip()
-            if self._logger:
-                self._logger.log(2, response)
+            self._log(2, response)
             if not response:
                 raise RuntimeError("R process ended unexpectedly.")
             
@@ -202,6 +197,12 @@ class RBridge:
         ready = process.stdout.readline().strip()
         if ready != "READY":
             process.kill()
+            if self._logger:
+                try:
+                    remainder = process.stdout.read()
+                except Exception:
+                    remainder = ""
+                self._logger.log(2, remainder)
             raise RuntimeError(f"Failed to start R worker process. Error: {ready}")
         
         return process     
@@ -252,4 +253,7 @@ class RBridge:
         for _ in self.run_code(f'setwd("{wd}")'): 
             pass
 
-    
+    def _log(self, direction, data):
+        """Logs a message to the session logger if it is enabled."""
+        if self._logger:
+            self._logger.log(direction, data)

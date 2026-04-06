@@ -73,8 +73,6 @@ jobs:
       - name: Build release notes
         run: |
           {
-            echo "# R Console V ${PLUGIN_VERSION}"
-            echo
             echo "## Release notes"
             echo
             cat changelog.txt
