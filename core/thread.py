@@ -1,11 +1,12 @@
 """Manages the R execution thread to keep the QGIS UI responsive."""
-from qgis.PyQt.QtCore import QObject, QThread, pyqtSignal, pyqtSlot, QMetaObject, Qt
+from qgis.PyQt.QtCore import QObject, QThread, QMetaObject, pyqtSignal, pyqtSlot
 from dataclasses import dataclass
 from typing import Callable
 
 from .utils import MissingDependencyError, RPathRequiredError
 from .result import ExpressionResult
 from .bridge import RBridge 
+from ..qt.core import Qt
 
 @dataclass
 class BridgeCallbacks:

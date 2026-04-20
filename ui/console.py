@@ -1,8 +1,10 @@
-from qgis.PyQt.QtCore import Qt, pyqtSignal
-from qgis.PyQt.QtGui import QFont, QTextCursor, QKeySequence, QColor
+from qgis.PyQt.QtCore import pyqtSignal
+from qgis.PyQt.QtGui import QColor, QKeySequence
 from qgis.PyQt.QtWidgets import QTextEdit, QShortcut
 import html
 
+from ..qt.core import Qt
+from ..qt.gui import QFont, QTextCursor
 
 class RConsole(QTextEdit):
     runRequested = pyqtSignal(str)

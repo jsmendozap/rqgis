@@ -1,7 +1,8 @@
-from qgis.PyQt.QtWidgets import QDialog, QFormLayout, QDialogButtonBox, QVBoxLayout, QMessageBox, QGroupBox, QPushButton
+from qgis.PyQt.QtWidgets import QDialog, QFormLayout, QVBoxLayout, QMessageBox, QGroupBox, QPushButton
 from qgis.gui import QgsFileWidget
 from ..core import utils
 from ..core import plugin_settings
+from ..qt.widgets import QDialogButtonBox
 from .log import LogViewerDialog
 import os
 

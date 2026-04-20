@@ -1,10 +1,13 @@
-from qgis.PyQt.QtCore import Qt, pyqtSignal
+from qgis.PyQt.QtCore import pyqtSignal
 from qgis.PyQt.QtGui import QColor, QKeySequence
-from qgis.PyQt.QtWidgets import QFrame, QTabWidget, QWidget, QFileDialog, QTabBar, QMessageBox, QShortcut
-from qgis.PyQt.Qsci import QsciScintilla, QsciAPIs
+from qgis.PyQt.QtWidgets import QTabWidget, QWidget, QFileDialog, QShortcut
+from qgis.PyQt.Qsci import QsciAPIs
 from qgis.gui import QgsCodeEditorR
 
 from ..core.utils import root_dir
+from ..qt.core import Qt
+from ..qt.qsci import QsciScintilla
+from ..qt.widgets import QFrame, QMessageBox, QTabBar
 import os
 import re
 import json

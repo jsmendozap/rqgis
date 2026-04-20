@@ -1,10 +1,11 @@
 from qgis.PyQt.QtWidgets import (
-    QMessageBox, QInputDialog, QFileDialog, QDialog,
-    QVBoxLayout, QDialogButtonBox, QTableView, QHeaderView,
+    QInputDialog, QFileDialog, QDialog,
+    QVBoxLayout, QTableView, QHeaderView,
     QTreeView
 )
 from qgis.PyQt.QtWidgets import QAbstractItemView
 from qgis.PyQt.QtGui import QStandardItemModel, QStandardItem
+from ..qt.widgets import QDialogButtonBox, QMessageBox
 
 import os
 import csv

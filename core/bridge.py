@@ -1,8 +1,9 @@
-from qgis.PyQt.QtCore import QMetaObject, Qt, Q_ARG
+from qgis.PyQt.QtCore import QMetaObject, Q_ARG
 from .result import RResult, RequestResult, PkgResult, HelpResult, PlotServerResult, DoneResult
 from .utils import RPathRequiredError, root_dir
 from .logger import SessionLogger
 from . import plugin_settings
+from ..qt.core import Qt
 from shutil import which
 import subprocess
 import json

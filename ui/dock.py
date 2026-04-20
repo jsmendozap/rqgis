@@ -1,12 +1,14 @@
-from qgis.PyQt.QtCore import Qt, pyqtSignal, QSize
+from qgis.PyQt.QtCore import pyqtSignal, QSize
 from qgis.PyQt.QtGui import QIcon, QKeySequence
 from qgis.PyQt.QtWidgets import (
     QDockWidget, QWidget, QVBoxLayout, QHBoxLayout, QToolButton,
-    QTabWidget, QSplitter, QLabel, QStyle, QFrame, QShortcut,
+    QTabWidget, QSplitter, QLabel, QShortcut,
     QFileDialog, QApplication
 )
 import os
-from qgis.PyQt.QtGui import QTextCursor
+from ..qt.core import Qt
+from ..qt.gui import QTextCursor
+from ..qt.widgets import QFrame, QStyle
 
 from .editor import EditorTabsWidget, EditorTab
 from .plot import PlotPanel

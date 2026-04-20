@@ -1,8 +1,11 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QGraphicsView, QGraphicsScene, QListWidget, QListWidgetItem, QListView, QMenu, QApplication
-from PyQt5.QtNetwork import QNetworkAccessManager, QNetworkRequest
-from PyQt5.QtWebSockets import QWebSocket
-from PyQt5.QtGui import QIcon, QPixmap
-from PyQt5.QtCore import QSize, Qt, QUrl, QTimer, pyqtSignal
+from qgis.PyQt.QtWidgets import QWidget, QVBoxLayout, QGraphicsScene, QListWidget, QListWidgetItem, QMenu, QApplication
+from qgis.PyQt.QtNetwork import QNetworkAccessManager, QNetworkRequest
+from qgis.PyQt.QtWebSockets import QWebSocket
+from qgis.PyQt.QtGui import QIcon, QPixmap
+from qgis.PyQt.QtCore import QSize, QUrl, QTimer, pyqtSignal
+
+from ..qt.core import Qt
+from ..qt.widgets import QGraphicsView, QListView
 
 class PlotPanel(QWidget):
     plotAdded = pyqtSignal()
@@ -108,4 +111,3 @@ class PlotPanel(QWidget):
         action.triggered.connect(lambda: QApplication.clipboard().setPixmap(self._plots[row]))
         menu.exec_(self.view.mapToGlobal(pos))
         
-

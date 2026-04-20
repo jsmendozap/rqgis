@@ -2,7 +2,6 @@ from qgis.PyQt.QtWidgets import QAction, QInputDialog
 from qgis.core import Qgis, QgsProject
 from qgis.PyQt import sip
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtCore import Qt
 from enum import Enum, auto
 import os
 
@@ -10,6 +9,7 @@ from .ui.dock import RDockWidget
 from .core.thread import RRunner
 from .core.qgis_api import QGISApi
 from .core import plugin_settings
+from .qt.core import Qt
 from .core import utils
 
 class RSessionState(Enum):

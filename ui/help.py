@@ -1,4 +1,5 @@
-from qgis.PyQt.QtWidgets import QDialog, QVBoxLayout, QTextBrowser, QDialogButtonBox
+from qgis.PyQt.QtWidgets import QDialog, QVBoxLayout, QTextBrowser
+from ..qt.widgets import QDialogButtonBox
 
 class HelpDialog(QDialog):
     def __init__(self, html, parent=None):

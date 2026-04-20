@@ -2,7 +2,7 @@
 name=R Console
 about=R Console embeds a full R environment inside QGIS. It provides an interactive console with command history, a script editor with syntax highlighting and autocompletion, and a QgisProject R6 object that exposes the active project's layers and metadata to R. Layers can be loaded into R as sf or SpatRaster objects and inserted back into QGIS after processing.
 qgisMinimumVersion=3.30
-qgisMaximumVersion=3.99
+qgisMaximumVersion=4.99
 description=A code editor and R console integrated into QGIS
 version=0.3.1
 author=Juan Mendoza
