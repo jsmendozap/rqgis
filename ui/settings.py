@@ -1,4 +1,4 @@
-from qgis.PyQt.QtWidgets import QDialog, QFormLayout, QVBoxLayout, QMessageBox, QGroupBox, QPushButton
+from qgis.PyQt.QtWidgets import QDialog, QFormLayout, QVBoxLayout, QMessageBox, QGroupBox, QPushButton, QCheckBox
 from qgis.gui import QgsFileWidget
 from ..core import utils
 from ..core import plugin_settings
@@ -31,6 +31,7 @@ class RDockSettings(QDialog):
         plugin_settings.set_initial_wd(self.initial_wd.filePath().strip())
         plugin_settings.set_status_debug(self.debug_group.isChecked())
         plugin_settings.set_log_dir(self.log_dir.filePath().strip())
+        plugin_settings.set_show_panel_title(self.panel_title.isChecked())
         
         self.accept()
 
@@ -43,11 +44,14 @@ class RDockSettings(QDialog):
         self.initial_wd = QgsFileWidget()
         self.initial_wd.setStorageMode(QgsFileWidget.GetDirectory)
 
+        self.panel_title = QCheckBox()
+
         general_group = QGroupBox("General")
         general_layout = QFormLayout(general_group)
         general_layout.setContentsMargins(10, 10, 10, 10)
         general_layout.addRow("Working directory on startup:", self.initial_wd)
         general_layout.addRow("R/Rscript path:", self.r_path)
+        general_layout.addRow("Show panel title:", self.panel_title)
 
         self.log_dir = QgsFileWidget()
         self.log_dir.setStorageMode(QgsFileWidget.GetDirectory)
@@ -74,6 +78,7 @@ class RDockSettings(QDialog):
         self.button_box.accepted.connect(self.save_settings)
         self.button_box.rejected.connect(self.reject)
         self.debug_group.toggled.connect(self._toggle_debug)
+        self.panel_title.toggled.connect(self._toggle_panel_title)
 
     def _load_settings(self):
         r_path = plugin_settings.get_r_path()
@@ -84,6 +89,7 @@ class RDockSettings(QDialog):
 
         self.initial_wd.setFilePath(initial)
         self.debug_group.setChecked(plugin_settings.get_status_debug())
+        self.panel_title.setChecked(plugin_settings.get_show_panel_title())
         
         log_dir = plugin_settings.get_log_dir()
         if not log_dir:
@@ -107,4 +113,5 @@ class RDockSettings(QDialog):
         dialog = LogViewerDialog(log_file, self)
         dialog.exec_()
 
-            
+    def _toggle_panel_title(self, checked):
+        plugin_settings.set_show_panel_title(checked)            

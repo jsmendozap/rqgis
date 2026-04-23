@@ -298,6 +298,9 @@ class RDockWidget(QDockWidget):
         container = QWidget()
         self.setWidget(container)
 
+        if plugin_settings.get_show_panel_title():
+            self.setWindowTitle("R Console")
+
         layout = QVBoxLayout(container)
 
         splitter = QSplitter(Qt.Vertical)

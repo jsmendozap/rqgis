@@ -7,6 +7,7 @@ KEY_R_PATH    = "r_path"
 KEY_INITIAL_WD = "initial_wd"
 KEY_STATUS_DEBUG = "enable_session_log"
 KEY_LOG_DIR = "session_log_dir"
+KEY_SHOW_PANEL_TITLE = "show_panel_title"
 
 
 def get_r_path():
@@ -35,3 +36,9 @@ def get_log_dir():
 
 def set_log_dir(path):
     _settings.setValue(KEY_LOG_DIR, path)
+
+def get_show_panel_title():
+    return _settings.value(KEY_SHOW_PANEL_TITLE, True, type=bool)
+
+def set_show_panel_title(show):
+    _settings.setValue(KEY_SHOW_PANEL_TITLE, bool(show))
