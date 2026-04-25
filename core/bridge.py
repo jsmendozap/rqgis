@@ -1,5 +1,5 @@
 from qgis.PyQt.QtCore import QMetaObject, Q_ARG
-from .result import RResult, RequestResult, PkgResult, HelpResult, PlotServerResult, DoneResult
+from .result import RResult, RequestResult, PkgResult, HelpResult, PlotServerResult, DoneResult, ChunkResult
 from .utils import RPathRequiredError, root_dir
 from .logger import SessionLogger
 from . import plugin_settings
@@ -66,12 +66,12 @@ class RBridge:
         self.process.stdin.flush()
 
         while True:
-            response = self.process.stdout.readline().strip()
+            response = self.process.stdout.readline()
             self._log(2, response)
             if not response:
                 raise RuntimeError("R process ended unexpectedly.")
             
-            result = RResult.from_msg(json.loads(response))
+            result = RResult.from_msg(response)
 
             if isinstance(result, RequestResult):
                 QMetaObject.invokeMethod(
@@ -127,7 +127,7 @@ class RBridge:
             else:
                 wd = result.wd
         
-        return RResult.from_msg({"type": "chunk", "data": stdout, "wd": wd})
+        return ChunkResult({"data": stdout, "wd": wd})
 
     def stop(self):
         """Terminates the R subprocess gracefully."""

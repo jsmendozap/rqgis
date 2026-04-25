@@ -1,5 +1,6 @@
 """Defines result classes for parsing messages from the R process."""
 from .utils import MissingDependencyError
+import json
 
 class RResult:
     stdout = ""
@@ -8,7 +9,12 @@ class RResult:
     expression = None
 
     @staticmethod
-    def from_msg(msg):
+    def from_msg(raw_msg):
+        try:
+            msg = json.loads(raw_msg.strip())
+        except json.JSONDecodeError:
+            msg = {"type": "chunk", "data": raw_msg.rstrip('\r\n')}
+            
         match msg["type"]:
             case "chunk":       return ChunkResult(msg)
             case "done":        return DoneResult(msg)

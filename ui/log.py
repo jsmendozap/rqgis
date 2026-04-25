@@ -79,7 +79,7 @@ class LogViewerDialog(QDialog):
         if t == "done":
             err = msg.get("error")
             err_str = f"error={err}" if err else "error=null"
-            return [err_str, f"wd={msg.get('wd', '')}"]
+            return [self._wrap(err_str, self.INDENT_3), f"wd={msg.get('wd', '')}"]
 
         if t == "plot_server":
             d = msg.get("data", {})

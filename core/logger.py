@@ -21,9 +21,9 @@ class SessionLogger:
             return
 
         try:
-            msg = json.loads(data)
+            msg = json.loads(data.strip())
         except json.JSONDecodeError:
-            msg = {"type": "error", "data": data}
+            msg = {"type": "error", "data": data.strip()}
 
         msg |= {"route": direction}
         self._fp.write(json.dumps(msg) + "\n")
