@@ -1,4 +1,5 @@
-.plugin_dir <- commandArgs(trailingOnly = TRUE)
+.plugin_dir <- commandArgs(trailingOnly = TRUE)[1]
+.qgis_process <- commandArgs(trailingOnly = TRUE)[2]
 .out <- stdout()
 
 cat("READY\n")
@@ -26,9 +27,15 @@ local({
             send_message("plot_server", list(
                 port = details$port,
                 token = details$token
-            ))   
+            ))
+
+            if (requireNamespace("qgisprocess", quietly = TRUE)) {
+                options(qgisprocess.path = .qgis_process)
+                qgisprocess::qgis_configure(use_cached_data = TRUE, quiet = TRUE)
+            }
+
         } else {
-            send_notify("Plots disabled: PNG renderer was not found.")
+            send_message("notify", "Plots disabled: PNG renderer was not found.")
         }
     }
 })

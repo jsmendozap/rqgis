@@ -1,4 +1,6 @@
 from qgis.PyQt.QtCore import QMetaObject, Q_ARG
+from qgis.core import QgsApplication
+
 from .result import RResult, RequestResult, PkgResult, HelpResult, PlotServerResult, DoneResult, ChunkResult, NotifyResult
 from .utils import RPathRequiredError, root_dir
 from .logger import SessionLogger
@@ -119,7 +121,7 @@ class RBridge:
         """
         code = "\n".join([
         'cat(R.version.string, "\\n")',
-        'cat("Running on", format(utils::osVersion), "\\n")',
+        'cat("Running on", format(utils::osVersion), "\\n")'
         ])
 
         stdout = ""
@@ -177,8 +179,10 @@ class RBridge:
         worker = os.path.join(self.plugin_dir, "main.R")
         args = [self.r, "--vanilla"]
         
+        qgis_process = self._qgis_process_path()
+
         if "rscript" not in base:
-            args.extend(["--slave", "-f", f"{worker}", "--args", f"{self.plugin_dir}"])
+            args.extend(["--slave", "-f", f"{worker}", "--args", f"{self.plugin_dir}", f"{qgis_process}"])
         else:
             args.extend([f"{worker}", f"{self.plugin_dir}"])
         
@@ -262,3 +266,12 @@ class RBridge:
         """Logs a message to the session logger if it is enabled."""
         if self._logger:
             self._logger.log(direction, data)
+
+    def _qgis_process_path(self):
+        """Returns the qgis_process path for the current QGIS installation."""
+        qgis_path = QgsApplication.applicationFilePath()
+        if os.name == 'nt':
+            qgis_process = os.path.join(os.path.dirname(qgis_path), "qgis_process.exe")
+        else:
+            qgis_process = os.path.join(os.path.dirname(qgis_path), "qgis_process")
+        return qgis_process

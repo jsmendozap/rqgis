@@ -76,5 +76,5 @@ class PlotServerResult(RResult):
 
 class NotifyResult(RResult):
     def __init__(self, msg):
-        self.message = msg.get("message", "")
+        self.message = msg.get("data", "")
     

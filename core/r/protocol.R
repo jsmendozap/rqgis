@@ -24,12 +24,6 @@ send_help <- function(html) {
     flush(.out)
 }
 
-send_notify <- function(message) {
-    msg <- toJSON(list(type = "notify", message = message), auto_unbox = TRUE)
-    cat(msg, "\n", file = .out, sep = "")
-    flush(.out)
-}
-
 send_question <- function(method, args = NULL) {
     msg <- toJSON(
         list(type = "question", method = method, args = args),
