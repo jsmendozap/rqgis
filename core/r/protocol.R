@@ -36,3 +36,19 @@ send_question <- function(method, args = NULL) {
     response <- fromJSON(readLines("stdin", n = 1, warn = FALSE))
     return(response)
 }
+
+send_request <- function(method, args = NULL) {
+    msg <- toJSON(
+        list(type = "request", method = method, args = args),
+        auto_unbox = TRUE,
+        null = "null"
+    )
+    cat(msg, "\n", file = .out, sep = "")
+    flush(.out)
+
+    response <- fromJSON(readLines("stdin", n = 1, warn = FALSE))
+    if (!is.null(response$error)) stop(response$error, call. = FALSE)
+    return(response)
+}
+
+options(rqgis.send_request = send_request)

@@ -6,7 +6,7 @@ cat("READY\n")
 flush(.out)
 
 local({
-    pkgs <- c("jsonlite", "evaluate", "R6", "httpgd")
+    pkgs <- c("jsonlite", "evaluate", "R6", "httpgd", "sf", "terra")
     missing <- pkgs[!sapply(pkgs, requireNamespace, quietly = TRUE)]
 
     if (length(missing) > 0) {
@@ -18,21 +18,17 @@ local({
         invisible(lapply(pkgs[1:3], library, character.only = TRUE))
         suppressMessages(tools::startDynamicHelp())
 
+        source(file.path(.plugin_dir, "core", "r", "setup.R"), local = TRUE)
         source(file.path(.plugin_dir, "core", "r", "protocol.R"), local = TRUE)
-    
+
         if ("png" %in% unigd::ugd_renderers()$id) {
+            
             httpgd::hgd(width = 380, height = 250, silent = TRUE)
             par(mar = c(4, 4, 2, 1))
             details <- httpgd::hgd_details()
             send_message("plot_server", list(
                 port = details$port,
-                token = details$token
-            ))
-
-            if (requireNamespace("qgisprocess", quietly = TRUE)) {
-                options(qgisprocess.path = .qgis_process)
-                qgisprocess::qgis_configure(use_cached_data = TRUE, quiet = TRUE)
-            }
+                token = details$token))
 
         } else {
             send_message("notify", "Plots disabled: PNG renderer was not found.")
@@ -40,13 +36,8 @@ local({
     }
 })
 
-.qgis <- new.env()
-.qgis$qgis_project <- function(data = NULL){
-    source(file.path(.plugin_dir, "core", "r", "qgis.R"), local = TRUE)
-    return(QgisProject$new(data))
-}
 
-attach(.qgis, pos = 2L, name = "qgis:utils", warn.conflicts = FALSE)
 source(file.path(.plugin_dir, "core", "r", "worker.R"), local = TRUE)
 
+library(rqgis)
 .worker_env$run()
