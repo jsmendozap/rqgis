@@ -18,16 +18,11 @@ get_signatures <- function(pkg) {
         !(fname %in% s3_registered)
     }
 
-    sig_for_fun <- function(fname) {
-        f <- tryCatch(
-            get(fname, envir = asNamespace(pkg), inherits = FALSE),
-            error = function(e) NULL
-        )
-        if (is.null(f) || !is.function(f)) return(NA_character_)
+    format_args <- function(fname, f) {
         fm <- tryCatch(formals(f), error = function(e) NULL)
-        if (is.null(fm)) return(NA_character_)
+        if (is.null(fm)) return(paste0(fname, "()"))
         arg_names <- names(fm)
-        arg_strs <- character(0L)
+        arg_strs  <- character(0L)
         for (i in seq_along(fm)) {
             nm <- arg_names[[i]]
             if (is.null(nm) || !nzchar(nm) || nm == "...") next
@@ -40,6 +35,15 @@ get_signatures <- function(pkg) {
         } else {
             paste0(fname, "(", paste(arg_strs, collapse = ", "), ")")
         }
+    }
+
+    sig_for_fun <- function(fname) {
+        f <- tryCatch(
+            get(fname, envir = asNamespace(pkg), inherits = FALSE),
+            error = function(e) NULL
+        )
+        if (is.null(f) || !is.function(f)) return(NA_character_)
+        format_args(fname, f)
     }
 
     exports <- tryCatch(getNamespaceExports(pkg), error = function(e) character(0L))

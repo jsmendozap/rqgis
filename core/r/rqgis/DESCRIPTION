@@ -1,6 +1,6 @@
 Package: rqgis
 Title: R API for QGIS Plugin
-Version: 0.1.2
+Version: 0.1.0
 Authors@R: person("Juan", "Mendoza", email = "jsmendozap@gmail.com", role = c("aut", "cre"))
 Description: Provides R API to interact with QGIS from the R Console plugin.
 Depends: R (>= 4.1.0)

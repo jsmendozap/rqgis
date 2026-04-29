@@ -25,11 +25,6 @@ QgisProject <- R6::R6Class("QgisProject",
 
                           .send_request = function(method, args = NULL) {
                             request <- getOption("rqgis.send_request")
-                            
-                            if (is.null(request)) {
-                              stop("QGIS communication protocol is not configured. Please run this inside the QGIS R Console.", call. = FALSE)
-                            }
-                            
                             return(request(method, args))
                           },
 

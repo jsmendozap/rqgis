@@ -121,7 +121,8 @@ class RBridge:
         """
         code = "\n".join([
         'cat(R.version.string, "\\n")',
-        'cat("Running on", format(utils::osVersion), "\\n")'
+        'cat("Running on", format(utils::osVersion), "\\n")',
+        'library(rqgis)',
         ])
 
         stdout = ""

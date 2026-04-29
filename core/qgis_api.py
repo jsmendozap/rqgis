@@ -1,4 +1,5 @@
-from qgis.PyQt.QtCore import QObject, pyqtSlot
+from qgis.PyQt.QtCore import QObject, pyqtSlot, QEventLoop, Qt
+from qgis.gui import QgsMapToolExtent, QgsMapToolEmitPoint
 from qgis.core import (
     QgsProject, QgsUnitTypes, QgsMapLayer, QgsRasterLayer,
     QgsVectorLayer, QgsWkbTypes, QgsProcessingFeatureSourceDefinition
@@ -59,6 +60,10 @@ class QGISApi(QObject):
                 self.result = self.get_canvas_extent()
             case "selected_features":
                 self.result = self.get_selected_features()
+            case "draw_bbox":
+                self.result = self.draw_bbox()
+            case "draw_points":
+                self.result = self.draw_points(msg.get("args", {}))
             case "question":
                 self.result = self.question(msg.get("args", {}))
             case _:
@@ -274,6 +279,109 @@ class QGISApi(QObject):
             info["res_y"] = layer.rasterUnitsPerPixelY()
 
         return info
+
+    def draw_bbox(self):
+        """
+        Activates an interactive map tool for the user to draw a bounding box.
+        Blocks the local execution loop until drawn or cancelled.
+        """
+        canvas = self.iface.mapCanvas()
+        prev_tool = canvas.mapTool()
+        tool = QgsMapToolExtent(canvas)
+        loop = QEventLoop()
+        result = {}
+
+        def on_extent(extent):
+            result["extent"] = extent
+            loop.quit()
+
+        def on_tool_changed(new_tool):
+            if new_tool != tool:
+                loop.quit()
+
+        tool.extentChanged.connect(on_extent)
+        canvas.mapToolSet.connect(on_tool_changed)
+        canvas.setMapTool(tool)
+        loop.exec()
+
+        tool.extentChanged.disconnect(on_extent)
+        try:
+            canvas.mapToolSet.disconnect(on_tool_changed)
+        except TypeError:
+            pass
+
+        if canvas.mapTool() == tool:
+            canvas.setMapTool(prev_tool)
+
+        extent = result.get("extent")
+        if extent is None:
+            return {"type": "error", "error": "Operation cancelled"}
+
+        crs = canvas.mapSettings().destinationCrs().authid()
+        return {
+            "type": "response",
+            "data": {
+                "xmin": extent.xMinimum(),
+                "xmax": extent.xMaximum(),
+                "ymin": extent.yMinimum(),
+                "ymax": extent.yMaximum(),
+                "crs": crs
+            }
+        }
+
+    def draw_points(self, args):
+        """
+        Activates an interactive map tool for the user to draw n points.
+        Blocks the local execution loop until drawn or cancelled.
+        """
+        n = args.get("n", 1)
+        canvas = self.iface.mapCanvas()
+        prev_tool = canvas.mapTool()
+        loop = QEventLoop()
+        result = {"points": [], "cancelled": False}
+
+        tool = QgsMapToolEmitPoint(canvas)
+
+        def on_clicked(point, button):
+            if button == Qt.LeftButton:
+                result["points"].append({"x": point.x(), "y": point.y()})
+                if len(result["points"]) >= n:
+                    loop.quit()
+
+        def on_tool_changed(new_tool):
+            if new_tool != tool:
+                result["cancelled"] = True
+                loop.quit()
+
+        tool.canvasClicked.connect(on_clicked)
+        canvas.mapToolSet.connect(on_tool_changed)
+        canvas.setMapTool(tool)
+        
+        loop.exec()
+
+        tool.canvasClicked.disconnect(on_clicked)
+        try:
+            canvas.mapToolSet.disconnect(on_tool_changed)
+        except TypeError:
+            pass
+
+        if canvas.mapTool() == tool:
+            canvas.setMapTool(prev_tool)
+
+        if result["cancelled"] or len(result["points"]) < n:
+            return {"type": "error", "error": "Operation cancelled"}
+
+        crs = canvas.mapSettings().destinationCrs().authid()
+        
+        response = {
+            "type": "response",
+            "data": {
+                "points": result["points"],
+                "crs": crs
+            }
+        }
+        
+        return response
 
     def update_state(self):
         """Flags that the project state has changed and needs to be sent to R."""

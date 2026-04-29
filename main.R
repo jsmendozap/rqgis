@@ -36,8 +36,5 @@ local({
     }
 })
 
-
 source(file.path(.plugin_dir, "core", "r", "worker.R"), local = TRUE)
-
-library(rqgis)
 .worker_env$run()
