@@ -4,8 +4,10 @@ from qgis.core import QgsApplication
 from .result import RResult, RequestResult, PkgResult, HelpResult, PlotServerResult, DoneResult, ChunkResult, NotifyResult
 from .utils import RPathRequiredError, root_dir
 from .logger import SessionLogger
+from .backends.pipes import PipesBackend
 from . import plugin_settings
 from ..qt.core import Qt
+
 import subprocess
 import json
 import os
@@ -22,8 +24,8 @@ class RBridge:
             qgis_api: An instance of QGISApi to handle requests from R.
             callbacks: An instance of BridgeCallbacks containing the callback functions.
         """
+        self._backend = None
         self.plugin_dir = root_dir()
-        self.process = None
         self.qgis_api = qgis_api
         self.r = self._find_rscript()
         self.callbacks = callbacks
@@ -36,7 +38,7 @@ class RBridge:
 
     def initialize(self):
         """Starts the R subprocess and sets the initial working directory."""
-        self.process = self._start()
+        self._start()
         self._set_wd()
         
     def run_code(self, code, width=None):
@@ -63,11 +65,11 @@ class RBridge:
         data = {"type": "code", "code": code.replace('\r\n', '\n'), "width": width}
         request = json.dumps(data) + "\n"
         self._log(1, request)
-        self.process.stdin.write(request)
-        self.process.stdin.flush()
+        self._backend.stdin.write(request)
+        self._backend.stdin.flush()
 
         while True:
-            response = self.process.stdout.readline()
+            response = self._backend.stdout.readline()
             self._log(2, response)
             if not response:
                 raise RuntimeError("R process ended unexpectedly.")
@@ -84,8 +86,8 @@ class RBridge:
                 
                 qgis_response = self.qgis_api.result
 
-                self.process.stdin.write(json.dumps(qgis_response) + "\n")
-                self.process.stdin.flush()
+                self._backend.stdin.write(json.dumps(qgis_response) + "\n")
+                self._backend.stdin.flush()
                 continue 
 
             if isinstance(result, PkgResult):
@@ -138,29 +140,27 @@ class RBridge:
 
     def stop(self):
         """Terminates the R subprocess gracefully."""
-        if self.process.poll() is not None:
+        if not self._backend or not self._backend.is_running():
             return
-        self.process.terminate()
+        self._backend.terminate()
         if self._logger:
             self._logger.close()
         try:
-            self.process.wait(timeout=2)
+            self._backend.wait(timeout=2)
         except subprocess.TimeoutExpired:
-            self.process.kill()
-            self.process.wait(timeout=2)
+            self._backend.kill()
+            self._backend.wait(timeout=2)
 
     def restart(self):
         """Stops and then restarts the R subprocess."""
         self.stop()
-        self.process = self._start()
+        self._start()
+        self._set_wd()
 
     def interrupt(self):
         """Sends an interrupt signal to the R subprocess to stop current execution."""
-        if self.process and self.process.poll() is None:
-            if os.name == 'nt':
-                self.process.send_signal(signal.CTRL_BREAK_EVENT)
-            else:
-                os.kill(self.process.pid, signal.SIGINT)
+        if self._backend:
+            self._backend.interrupt()
                 
     def _start(self):
         """
@@ -187,35 +187,17 @@ class RBridge:
         else:
             args.extend([f"{worker}", f"{self.plugin_dir}", f"{qgis_process}"])
         
-        creationflags = 0
-        if os.name == 'nt':
-            creationflags = subprocess.CREATE_NO_WINDOW | getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0)
-
-        process = subprocess.Popen(
-            args,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            encoding='utf-8',
-            bufsize=0,
-            cwd=self.plugin_dir, 
-            creationflags=creationflags, 
-            start_new_session= True if not os.name == 'nt' else False
-        )
-
-        ready = process.stdout.readline().strip()
+        self._backend = PipesBackend(args=args, cwd=self.plugin_dir).start()
+        ready = self._backend.stdout.readline().strip()
         if ready != "READY":
-            process.kill()
+            self._backend.terminate()
             if self._logger:
                 try:
-                    remainder = process.stdout.read()
+                    remainder = self._backend.stdout.read()
                 except Exception:
                     remainder = ""
                 self._logger.log(2, remainder)
             raise RuntimeError(f"Failed to start R worker process. Error: {ready}")
-        
-        return process     
     
     def _send_project_update(self, type):
         """
@@ -231,8 +213,8 @@ class RBridge:
         )
         state = self.qgis_api.result
         msg = {"type": f"{type}", "data": state}
-        self.process.stdin.write(json.dumps(msg) + "\n")
-        self.process.stdin.flush()
+        self._backend.stdin.write(json.dumps(msg) + "\n")
+        self._backend.stdin.flush()
 
     def _find_rscript(self):
         """
