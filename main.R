@@ -22,14 +22,13 @@ local({
         source(file.path(.plugin_dir, "core", "r", "protocol.R"), local = TRUE)
 
         if ("png" %in% unigd::ugd_renderers()$id) {
-            
             httpgd::hgd(width = 380, height = 250, silent = TRUE)
             par(mar = c(4, 4, 2, 1))
             details <- httpgd::hgd_details()
             send_message("plot_server", list(
                 port = details$port,
-                token = details$token))
-
+                token = details$token
+            ))
         } else {
             send_message("notify", "Plots disabled: PNG renderer was not found.")
         }

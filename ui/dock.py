@@ -220,7 +220,7 @@ class RDockWidget(QDockWidget):
         corner_layout.setContentsMargins(0, 0, 4, 3)
         corner_layout.addWidget(self.clear_button)
         corner_layout.addWidget(self.restart_button)
-        #corner_layout.addWidget(self.stop_button)
+        corner_layout.addWidget(self.stop_button)
         corner_layout.addWidget(self.wd_button)
         self.output_tabs.setCornerWidget(corner_console, Qt.TopRightCorner)
 

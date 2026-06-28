@@ -15,7 +15,7 @@ def get_r_path():
     saved = _settings.value(KEY_R_PATH, "", type=str)
     if saved:
         return saved
-    path = which("Rscript")
+    path = which("R")
     return path if path else ""
 
 def set_r_path(path):

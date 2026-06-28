@@ -22,8 +22,8 @@ class RDockSettings(QDialog):
         if r_path and not utils.is_valid_rscript(r_path):
             QMessageBox.warning(
                 self,
-                "Invalid Rscript path",
-                f"The path '{r_path}' is not a valid Rscript executable."
+                "Invalid R path",
+                f"The path '{r_path}' is not a valid R executable."
             )
             return
         
@@ -67,7 +67,7 @@ class RDockSettings(QDialog):
         general_layout = QFormLayout(general_group)
         general_layout.setContentsMargins(10, 10, 10, 10)
         general_layout.addRow("Working directory on startup:", self.initial_wd)
-        general_layout.addRow("R/Rscript path:", self.r_path)
+        general_layout.addRow("R executable path:", self.r_path)
         general_layout.addRow("Show panel title:", self.panel_title)
 
         self.log_dir = QgsFileWidget()

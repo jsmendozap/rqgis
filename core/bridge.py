@@ -5,13 +5,13 @@ from .result import RResult, RequestResult, PkgResult, HelpResult, PlotServerRes
 from .utils import RPathRequiredError, root_dir
 from .logger import SessionLogger
 from .backends.pipes import PipesBackend
+from .backends.unix import UnixBackend
 from . import plugin_settings
 from ..qt.core import Qt
 
 import subprocess
 import json
 import os
-import signal
 
 class RBridge:
     """Handles the lifecycle and communication with the R subprocess."""
@@ -27,7 +27,7 @@ class RBridge:
         self._backend = None
         self.plugin_dir = root_dir()
         self.qgis_api = qgis_api
-        self.r = self._find_rscript()
+        self.r = self._find_r_path()
         self.callbacks = callbacks
         
         if plugin_settings.get_status_debug():
@@ -176,28 +176,28 @@ class RBridge:
         Returns:
             subprocess.Popen: The Popen object for the running R process.
         """
-        base = os.path.basename(self.r).lower()
         worker = os.path.join(self.plugin_dir, "main.R")
-        args = [self.r, "--vanilla"]
+        args = [self.r, "--vanilla", "--quiet", "-f", f"{worker}", "--args", f"{self.plugin_dir}", f"{self._qgis_process_path()}"]
         
-        qgis_process = self._qgis_process_path()
+        backend = UnixBackend if os.name != "nt" else PipesBackend
+        self._backend = backend(args=args, cwd=self.plugin_dir).start()
 
-        if "rscript" not in base:
-            args.extend(["--slave", "-f", f"{worker}", "--args", f"{self.plugin_dir}", f"{qgis_process}"])
-        else:
-            args.extend([f"{worker}", f"{self.plugin_dir}", f"{qgis_process}"])
-        
-        self._backend = PipesBackend(args=args, cwd=self.plugin_dir).start()
-        ready = self._backend.stdout.readline().strip()
-        if ready != "READY":
-            self._backend.terminate()
-            if self._logger:
-                try:
-                    remainder = self._backend.stdout.read()
-                except Exception:
-                    remainder = ""
-                self._logger.log(2, remainder)
-            raise RuntimeError(f"Failed to start R worker process. Error: {ready}")
+        while True:
+            ready = self._backend.stdout.readline()
+            if not ready:
+                raise RuntimeError("R worker process ended unexpectedly while starting.")
+            clean = ready.strip().replace('"', "")
+            if clean == "READY":
+                break
+            if "Error" in clean or "Execution halted" in clean or "fatal" in clean.lower():
+                self._backend.terminate()
+                if self._logger:
+                    try:
+                        remainder = self._backend.stdout.read()
+                    except Exception:
+                        remainder = ""
+                    self._logger.log(2, remainder)
+                raise RuntimeError(f"Failed to start R worker process. Error: {clean}")
     
     def _send_project_update(self, type):
         """
@@ -216,7 +216,7 @@ class RBridge:
         self._backend.stdin.write(json.dumps(msg) + "\n")
         self._backend.stdin.flush()
 
-    def _find_rscript(self):
+    def _find_r_path(self):
         """
         Finds the path to the Rscript executable.
 
@@ -232,7 +232,7 @@ class RBridge:
         if path:
             return path
             
-        raise RPathRequiredError("R/Rscript not found.")
+        raise RPathRequiredError("R not found in PATH. Please set the R path in the plugin settings.")
 
     def _set_wd(self):
         """Sets the initial working directory in the R session."""

@@ -18,6 +18,7 @@ class PipesBackend(BaseBackend):
             encoding="utf-8",
             bufsize=0,
             cwd=self.cwd,
+            env=self.env,
             creationflags=creationflags,
             start_new_session=False if os.name == "nt" else True,
         )
