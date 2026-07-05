@@ -27,12 +27,14 @@ class UnixBackend(BaseBackend):
         os.close(self.slave)
         self.slave = None
         self.stdin = io.TextIOWrapper(os.fdopen(self.master, "rb+", buffering=0), encoding="utf-8", newline="\n", write_through=True)
-        self.stdout = self.stdin
         return self
 
     def terminate(self):
         if self.is_running():
             self.process.terminate()
+
+    def readline(self):
+        return self.stdin.readline()
 
     def wait(self, timeout=None):
         if self.process:
@@ -46,4 +48,5 @@ class UnixBackend(BaseBackend):
         if self.is_running():
             os.killpg(self.process.pid, signal.SIGINT)
 
-        
+    def __str__(self):
+        return "UnixPty"

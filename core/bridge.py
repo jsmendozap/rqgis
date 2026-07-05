@@ -4,15 +4,18 @@ from qgis.core import QgsApplication
 from .result import RResult, RequestResult, PkgResult, HelpResult, PlotServerResult, DoneResult, ChunkResult, NotifyResult
 from .utils import RPathRequiredError, root_dir
 from .logger import SessionLogger
-from .backends.pipes import PipesBackend
-from .backends.unix import UnixBackend
-from .backends.windows import WindowsBackend
 from . import plugin_settings
 from ..qt.core import Qt
 
 import subprocess
 import json
 import os
+
+from .backends.pipes import PipesBackend
+if os.name == "nt":
+    from .backends.windows import WindowsBackend
+else:
+    from .backends.unix import UnixBackend
 
 class RBridge:
     """Handles the lifecycle and communication with the R subprocess."""
@@ -70,7 +73,7 @@ class RBridge:
         self._backend.stdin.flush()
 
         while True:
-            response = self._backend.stdout.readline()
+            response = self._backend.readline()
             self._log(2, response)
             if not response:
                 raise RuntimeError("R process ended unexpectedly.")
@@ -185,9 +188,11 @@ class RBridge:
             self._backend = backend(args=args, cwd=self.plugin_dir).start()
         except ImportError:
             self._backend = PipesBackend(args=args, cwd=self.plugin_dir).start()
-
+        if self._logger:
+            self._logger.log(2, f"Backend selected: {self._backend}")
+        
         while True:
-            ready = self._backend.stdout.readline()
+            ready = self._backend.readline()
             if not ready:
                 raise RuntimeError("R worker process ended unexpectedly while starting.")
             clean = ready.strip().replace('"', "")
@@ -197,7 +202,7 @@ class RBridge:
                 self._backend.terminate()
                 if self._logger:
                     try:
-                        remainder = self._backend.stdout.read()
+                        remainder = self._backend.readline()
                     except Exception:
                         remainder = ""
                     self._logger.log(2, remainder)

@@ -12,6 +12,9 @@ class BaseBackend:
     def terminate(self):
         raise NotImplementedError
     
+    def readline(self):
+        raise NotImplementedError
+    
     def wait(self, timeout=None):
         raise NotImplementedError
     

@@ -18,17 +18,19 @@ class PipesBackend(BaseBackend):
             encoding="utf-8",
             bufsize=0,
             cwd=self.cwd,
-            env=self.env,
             creationflags=creationflags,
             start_new_session=False if os.name == "nt" else True,
         )
         self.stdin = self.process.stdin
-        self.stdout = self.process.stdout
+        
         return self
     
     def terminate(self):
         if self.is_running():
             self.process.terminate()
+
+    def readline(self):
+        return self.process.stdout.readline()
 
     def wait(self, timeout=None):
         if self.process:
@@ -40,3 +42,6 @@ class PipesBackend(BaseBackend):
 
     def interrupt(self):
         return
+    
+    def __str__(self):
+        return "Pipes"
