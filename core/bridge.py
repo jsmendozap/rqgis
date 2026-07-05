@@ -6,6 +6,7 @@ from .utils import RPathRequiredError, root_dir
 from .logger import SessionLogger
 from .backends.pipes import PipesBackend
 from .backends.unix import UnixBackend
+from .backends.windows import WindowsBackend
 from . import plugin_settings
 from ..qt.core import Qt
 
@@ -179,8 +180,11 @@ class RBridge:
         worker = os.path.join(self.plugin_dir, "main.R")
         args = [self.r, "--vanilla", "--quiet", "-f", f"{worker}", "--args", f"{self.plugin_dir}", f"{self._qgis_process_path()}"]
         
-        backend = UnixBackend if os.name != "nt" else PipesBackend
-        self._backend = backend(args=args, cwd=self.plugin_dir).start()
+        backend = UnixBackend if os.name != "nt" else WindowsBackend
+        try: 
+            self._backend = backend(args=args, cwd=self.plugin_dir).start()
+        except ImportError:
+            self._backend = PipesBackend(args=args, cwd=self.plugin_dir).start()
 
         while True:
             ready = self._backend.stdout.readline()

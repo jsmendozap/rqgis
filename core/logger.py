@@ -1,5 +1,6 @@
 import os 
 import json
+import re
 
 class SessionLogger:
     """A simple logger that writes R console sessions to a file."""
@@ -21,7 +22,10 @@ class SessionLogger:
             return
 
         try:
-            msg = json.loads(data.strip())
+            cleaned = re.sub(r"\x1b\[[0-9;?]*[ -/]*[@-~]", "", data).strip()
+            if not cleaned or cleaned.startswith(">") or cleaned.startswith("+"):
+                return
+            msg = json.loads(cleaned)
         except json.JSONDecodeError:
             msg = {"type": "error", "data": data.strip()}
 
