@@ -182,7 +182,9 @@ class RBridge:
         """
         worker = os.path.join(self.plugin_dir, "main.R")
         args = [self.r, "--vanilla", "--quiet", "-f", f"{worker}", "--args", f"{self.plugin_dir}", f"{self._qgis_process_path()}"]
-        
+        if os.name == "nt":
+            args.insert(2, "--no-echo")
+
         backend = UnixBackend if os.name != "nt" else WindowsBackend
         try: 
             self._backend = backend(args=args, cwd=self.plugin_dir).start()
@@ -196,6 +198,7 @@ class RBridge:
             if not ready:
                 raise RuntimeError("R worker process ended unexpectedly while starting.")
             clean = ready.strip().replace('"', "")
+
             if clean == "READY":
                 break
             if "Error" in clean or "Execution halted" in clean or "fatal" in clean.lower():

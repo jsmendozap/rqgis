@@ -4,7 +4,7 @@ about=R Console embeds a full R environment inside QGIS. It provides an interact
 qgisMinimumVersion=3.30
 qgisMaximumVersion=4.99
 description=A code editor and R console integrated into QGIS
-version=0.4.0
+version=0.5
 author=Juan Mendoza
 email=jsmendozap@gmail.com
 tracker=https://github.com/jsmendozap/rqgis/issues
@@ -12,16 +12,13 @@ repository=https://github.com/jsmendozap/rqgis
 homepage=https://jsmendozap.github.io/rqgis/
 tags=R
 icon=resources/Rlogo.png
-experimental=True
-changelog=0.4.0
-    - Support for QGIS 4. 
-    - Introduce the `rqgis` package to wrap the public API for QGIS interaction from R.
-    - Added `qgis_draw_bbox` and `qgis_draw_points` functions
-    - Automatic configuration of qgis_process path during `qgisprocess` package load
-    - Dedicated API documentation website published via pkgdown
-    - Implement a log viewer in the settings panel
-    - Added option in settings to display the plugin title in the main panel 
-    - Bug fixes
+experimental=False
+changelog=0.5
+    - Added PTY-backed interactive support for Unix/macOS and Windows.
+    - Windows can use `pywinpty` for a real terminal session.
+    - Added a pipes fallback when `pywinpty` is not available.
+    - Improved interrupt handling which stops the running evaluation cleanly.
+    - The plugin is now released as a normal plugin instead of experimental.
 deprecated=False
 server=False
 hasProcessingProvider=False

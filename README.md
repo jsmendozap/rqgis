@@ -1,14 +1,11 @@
 # R Console
 
-![Status](https://img.shields.io/badge/Status-Experimental-orange.svg)
-![Version](https://img.shields.io/badge/Version-0.4.0-blue.svg)
+![Status](https://img.shields.io/badge/Status-Release-brightgreen.svg)
+![Version](https://img.shields.io/badge/Version-0.5-blue.svg)
 ![QGIS](https://img.shields.io/badge/QGIS-3.30%2B-brightgreen.svg)
 ![License](https://img.shields.io/badge/License-GPL%20v2-green.svg)
 
 An R console integrated into QGIS. Write and execute R code directly inside QGIS with full access to the active project's layers, CRS, extent, and properties from R. Supports bidirectional interoperability: load vector and raster layers from QGIS into R, and insert R spatial objects back into the project.
-
-> [!WARNING] 
-> This project is currently in an early stage of development. While the core functionalities are already implemented and fully functional, there are still several features and improvements pending (please refer to the [Roadmap](#roadmap) below).
 
 ![Demo](resources/demo.gif)
 
@@ -37,20 +34,37 @@ An R console integrated into QGIS. Write and execute R code directly inside QGIS
 - [x] Support for `View` command
 - [x] Enable functions that require user interaction (e.g. `file.choose`, `menu`, ...)
 - [x] Compatibility with QGIS 4
-- [ ] Pseudo-terminal (PTY) emulation for full interactive support
+- [x] Pseudo-terminal (PTY) emulation for full interactive support
 - [ ] Language Server Protocol (LSP) implementation for advanced editor features
 
 ## Requirements
 
 - QGIS 3.30 or later
-- R 4.1.0 or later 
+- R 4.1.0 or later
 - R packages: `R6`, `jsonlite`, `evaluate`, `httpgd`, `sf`, `terra`
+- The configured R path must point directly to the R executable (`R.exe` on Windows, the `R` binary on Unix/macOS), not to `Rscript.exe`
+- Optional on Windows: `pywinpty` for fully pseudo-terminal behaviour.
 
 Install the required R packages before using the plugin:
 
 ```r
 install.packages(c("R6", "jsonlite", "evaluate", "httpgd", "sf", "terra"))
 ```
+
+### Windows interactive shell support
+
+On Windows, the plugin uses `pywinpty` to expose a real terminal to R.
+This is what enables the interactive console to behave like a proper PTY-backed session.
+
+Install it into the same Python environment used by QGIS:
+
+```bash
+python -m pip install pywinpty
+```
+
+If you use the OSGeo4W distribution, run the command from the OSGeo4W Shell.
+
+If `pywinpty` is not available, the plugin falls back to pipes. That fallback keeps the plugin usable, but it may not work as expected in some situations.
 
 ## Installation
 
@@ -60,8 +74,7 @@ The R Console plugin is available in the official QGIS Plugin Repository.
 2.  Search for **"R Console"** in the `All` tab.
 3.  Select **R Console** from the list and click **Install Plugin**.
 
-> [!NOTE]
-> This plugin is marked as experimental. If you cannot find it, go to the **Settings** tab in the plugin manager and make sure the **"Show also experimental plugins"** option is checked.
+If you cannot find it, make sure the official QGIS Plugin Repository is enabled in the plugin manager.
 
 ## Usage
 
@@ -69,11 +82,11 @@ The dock widget contains two panels: an interactive console and a script editor.
 
 ### Console
 
-Type R expressions and press **Enter** to execute. Use the **Up/Down** arrow keys to navigate command history. 
+Type R expressions and press **Enter** to execute. Use the **Up/Down** arrow keys to navigate command history.
 
 ### Editor
 
-Write R scripts in the editor. Execute the current expression with **Ctrl+Enter**, or run the entire script with the **Run** button. 
+Write R scripts in the editor. Execute the current expression with **Ctrl+Enter**, or run the entire script with the **Run** button.
 
 ### QGIS project access
 
@@ -141,16 +154,16 @@ dem <- qgis$get_layer("dem_raster")
 
 ```r
 qgis$layer_info("world")
-# Layer: world> 
-# @ Type: vector 
-# @ CRS:  EPSG:4326 
-# @ Extent: 
-#     xmin = -180 
-#     xmax = 180 
-#     ymin = -90 
-#     ymax = 83.64513 
-# @ Geometry: MultiPolygon 
-# @ Features: 177 
+# Layer: world>
+# @ Type: vector
+# @ CRS:  EPSG:4326
+# @ Extent:
+#     xmin = -180
+#     xmax = 180
+#     ymin = -90
+#     ymax = 83.64513
+# @ Geometry: MultiPolygon
+# @ Features: 177
 # @ Fields:
 #     name
 #     continent

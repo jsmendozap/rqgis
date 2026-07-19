@@ -1,65 +1,70 @@
-import os
-import threading
-import queue
 try:
     from winpty import PtyProcess
 except ImportError:
     PtyProcess = None
 
 from .base import BaseBackend
+import re
+
+_ANSI_RE = re.compile(r'\x1b\[[0-9;?]*[a-zA-Z]')
+
+class _CRLFWriter:
+    def __init__(self, proc, on_write=None):
+        self._proc = proc
+        self._on_write = on_write
+
+    def write(self, s):
+        if self._on_write:
+            self._on_write(s)
+        return self._proc.write(s.replace('\n', '\r\n'))
+
+    def flush(self):
+        self._proc.flush()
+
 
 class WindowsBackend(BaseBackend):
 
     def __init__(self, args, cwd=None):
         super().__init__(args, cwd)
         self._proc = None
-        self._reader = None
-        self._queue = queue.Queue()
-        self._stop = threading.Event()
+        self._last_written = None
 
     def start(self):
         if PtyProcess is None:
             raise ImportError("winpty is not available")
-        self._proc = PtyProcess.spawn(self.args, cwd=self.cwd, env=os.environ.copy())
+        self._proc = PtyProcess.spawn(self.args, cwd=self.cwd)
         self.process = self._proc
-        self.stdin = self._proc
+        self.stdin = _CRLFWriter(self._proc, on_write=self._track_write)
         self.stdout = self._proc
-        self._reader = threading.Thread(target=self._reader_loop, daemon=True)
-        self._reader.start()
         return self
-        
-    def _reader_loop(self):
-        while not self._stop.is_set() and self._proc and self._proc.isalive():
-            try:
-                data = self._proc.read(4096)
-            except EOFError:
-                break
-            if not data:
-                break
-            self._queue.put(data if isinstance(data, str) else data.decode("utf-8", errors="replace"))    
+
+    def _track_write(self, s):
+        self._last_written = _ANSI_RE.sub('', s).strip()
 
     def readline(self):
-        try:
-            return self._queue.get(timeout=0.1)
-        except queue.Empty:
-            return ""
+        while True:
+            try:
+                line = self._proc.readline()
+            except EOFError:
+                return ""
+            clean = _ANSI_RE.sub('', line)
+            if self._last_written and clean.strip() == self._last_written:
+                self._last_written = None
+                continue
+            return clean
 
     def is_running(self):
         return self.process is not None and self.process.isalive()
 
     def terminate(self):
-        self._stop.set()
         if self.is_running():
-            self.process.terminate()
-        if self._reader is not None:
-            self._reader.join(timeout=1.0)
+            self.process.terminate(force=False)
 
     def wait(self, timeout=None):
         if not self.process:
             return
         if timeout is None:
-            while self.is_running():
-                pass
+            self.process.wait()
             return
         import time
         deadline = time.time() + timeout
@@ -67,11 +72,8 @@ class WindowsBackend(BaseBackend):
             time.sleep(0.05)
 
     def kill(self):
-        self._stop.set()
         if self.is_running():
-            self.process.kill()
-        if self._reader is not None:
-            self._reader.join(timeout=1.0)
+            self.process.terminate(force=True)
 
     def interrupt(self):
         if self.is_running():
